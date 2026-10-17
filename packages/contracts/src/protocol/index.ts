@@ -59,6 +59,8 @@ export const CLIENT_METHODS = {
   threadDelete: 'thread/delete',
   /** 上下文压缩（Z1-5；ThreadCompactStartParams: { threadId }，完成以 thread/compacted 通知为准） */
   threadCompactStart: 'thread/compact/start',
+  /** 线程内代码审阅（Z2B-2 预留：UI 审阅面板待后续；inline 于当前线程） */
+  reviewStart: 'review/start',
   turnStart: 'turn/start',
   turnSteer: 'turn/steer',
   turnInterrupt: 'turn/interrupt',

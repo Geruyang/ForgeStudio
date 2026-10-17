@@ -653,3 +653,23 @@ describe('onBatchedDelta 批处理', () => {
     expect(mergedText).toBe('片段1；片段2；片段3；片段4；片段5；');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 代码审阅（Z2B-2 预留：引擎侧接口；UI 面板待后续）
+// ---------------------------------------------------------------------------
+
+describe('代码审阅 review/start', () => {
+  it('当前线程内启动：下发 review/start（uncommittedChanges 目标，inline）', async () => {
+    const h = track(createHarness({ scenario: 'basic', authMode: 'apikey' }));
+    const { threadId } = await h.adapter.start({ projectRoot: h.root });
+    await h.adapter.startReview();
+    const req = h.rx().find((r) => r.msg.method === 'review/start');
+    expect(req).toBeDefined();
+    expect(req!.msg.params).toMatchObject({ threadId, target: { type: 'uncommittedChanges' } });
+  });
+
+  it('引擎未就绪时：明确报错（不静默）', async () => {
+    const h = track(createHarness({ scenario: 'basic', authMode: 'apikey' }));
+    await expect(h.adapter.startReview()).rejects.toThrow();
+  });
+});

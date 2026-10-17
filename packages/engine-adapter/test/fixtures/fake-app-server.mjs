@@ -561,6 +561,9 @@ function dispatch(msg) {
         sendResponse(msg.id, {});
         notify('thread/deleted', { threadId: msg.params?.threadId ?? threadId });
         return;
+      case 'review/start':
+        sendResponse(msg.id, {});
+        return;
       case 'thread/compact/start':
         sendResponse(msg.id, {});
         notify('thread/compacted', {

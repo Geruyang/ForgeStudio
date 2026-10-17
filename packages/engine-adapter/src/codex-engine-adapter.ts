@@ -702,6 +702,14 @@ export class CodexEngineAdapter implements EngineAdapter {
     await this.#sendRequest(CLIENT_METHODS.threadDelete, { threadId });
   }
 
+  async startReview(): Promise<void> {
+    if (!this.#connected || !this.#threadId) {
+      throw new EngineConnectionError('代码审阅需要引擎就绪且存在当前会话');
+    }
+    // inline 于当前线程（detached 已被上游标注 deprecated）
+    await this.#sendRequest(CLIENT_METHODS.reviewStart, { threadId: this.#threadId, target: { type: 'uncommittedChanges' } });
+  }
+
   async compactThread(threadId: string): Promise<void> {
     if (!this.#isLiveThread(threadId)) {
       throw new EngineConnectionError('上下文压缩需要引擎就绪且目标为当前会话');

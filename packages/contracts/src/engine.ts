@@ -92,6 +92,11 @@ export interface EngineAdapter {
    */
   deleteThread(threadId: string): Promise<void>;
   /**
+   * 代码审阅（Z2B-2 预留）：当前线程内 inline 启动 review/start；审阅项以事件流回流，
+   * 完整审阅面板（独立视图/decision 应答 UI）待后续——接口先行保证引擎能力就绪。
+   */
+  startReview(): Promise<void>;
+  /**
    * 上下文压缩（Z1-5）：下发 thread/compact/start；完成以 session/compacted 事件
    * （thread/compacted 通知投影）为准，本方法返回仅代表请求受理。
    */
