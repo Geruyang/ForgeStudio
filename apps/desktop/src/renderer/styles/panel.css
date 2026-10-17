@@ -1,0 +1,366 @@
+/* ==========================================================================
+   工程交付面板（右栏）与设置/任务向导
+   ========================================================================== */
+
+.panel {
+  grid-area: panel;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.panel__section {
+  padding: 10px 14px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel__section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.panel__section-title .fd-badge {
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.panel__task-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(55, 197, 216, 0.05), transparent);
+}
+
+.panel__task-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 2px 0 4px;
+}
+
+.panel__task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.panel__task-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.panel__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.panel__row-value {
+  color: var(--text);
+  word-break: break-all;
+}
+
+.panel__row-label {
+  flex: none;
+  color: var(--text-faint);
+  min-width: 68px;
+}
+
+/* ----------------------------------------------------------------- 验收单 */
+
+.acceptance {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.acceptance__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.acceptance__count {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.acc-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 7px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.acc-item__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.acc-item__title {
+  font-size: 12.5px;
+  color: var(--text);
+  flex: 1;
+  min-width: 120px;
+}
+
+.acc-item__expected {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.acc-item__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------------- 操作 */
+
+.op-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  background: var(--bg-raised);
+  flex-wrap: wrap;
+}
+
+.op-item__type {
+  color: var(--cyan);
+  font-size: 12px;
+}
+
+.op-item__summary {
+  color: var(--text-dim);
+  flex: 1;
+  min-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.op-item__time {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+}
+
+/* ------------------------------------------------------------------- 产物 */
+
+.artifact-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  background: var(--bg-raised);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.artifact-row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.artifact-row__path {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  word-break: break-all;
+}
+
+.artifact-row__meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+}
+
+/* ---------------------------------------------------------------- 设备区 */
+
+.device-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  background: var(--bg-raised);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.device-row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.device-row__name {
+  color: var(--text);
+  flex: 1;
+  min-width: 100px;
+}
+
+.device-row__meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+}
+
+.binding-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.binding-form textarea {
+  min-height: 44px;
+  resize: vertical;
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------- 表单通用 */
+
+.fd-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fd-form__row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fd-form__label {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.fd-form__hint {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.fd-form__error {
+  font-size: 11.5px;
+  color: #ff8a87;
+}
+
+/* 设置/表单分组：核心组（模型与账号）无上边框，后续组用分隔线+小节标题 */
+.fd-form__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.fd-form__section + .fd-form__section {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 2px;
+}
+
+.fd-form__section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.fd-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.fd-check input {
+  accent-color: var(--accent);
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.template-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  background: var(--bg-raised);
+}
+
+.template-item--selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.template-item__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.template-item__row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.template-item input,
+.template-item select {
+  font-size: 12px;
+  padding: 3px 6px;
+}
+
+.template-item input[type='text'] {
+  flex: 1;
+  min-width: 120px;
+}

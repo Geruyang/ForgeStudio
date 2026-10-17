@@ -1,0 +1,4 @@
+{"seq":1,"connectionGeneration":1,"threadId":"th-fixture-4","emittedAt":"2026-10-14T06:30:00.000Z","type":"engine/status","status":"ready"}
+{"seq":2,"connectionGeneration":1,"threadId":"th-fixture-4","turnId":"turn-0005","emittedAt":"2026-10-14T06:30:01.000Z","type":"turn/started","turnId":"turn-0005","inputPreview":"运行验收测试"}
+{"seq":3,"connectionGeneration":1,"threadId":"th-fixture-4","turnId":"turn-0005","emittedAt":"2026-10-14T06:30:02.000Z","type":"error","code":"model_failure","message":"上游模型服务 5xx（模拟）","recoverable":false}
+{"seq":4,"connectionGeneration":1,"threadId":"th-fixture-4","turnId":"turn-0005","emittedAt":"2026-10-14T06:30:03.000Z","type":"turn/completed","turnId":"turn-0005","status":"failure"}

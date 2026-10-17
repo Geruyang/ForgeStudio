@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-tool",
+  "revision": 1,
+  "title": "sample-tool 行数统计工具（T1 软件故事目标工程：含可复现空输入崩溃缺陷）",
+  "kind": "software",
+  "build": {
+    "exe": "node",
+    "args": ["build.mjs"],
+    "timeoutMs": 60000
+  },
+  "artifactsGlob": ["build-report.json"],
+  "verifiers": [
+    {
+      "verifierId": "sample-tool-fixed-acceptance",
+      "title": "固定验收测试（空输入不崩溃 + 统计正确）",
+      "command": {
+        "exe": "node",
+        "args": ["run-tests.mjs"],
+        "timeoutMs": 60000
+      },
+      "passExitCode": 0,
+      "stdoutMustContain": ["TESTS_PASSED"],
+      "stdoutMustNotContain": ["TEST_FAILED"],
+      "outputLimitBytes": 1048576
+    }
+  ],
+  "inputIncludes": ["tool.mjs", "build.mjs", "run-tests.mjs", "sample-tool.profile.json", "fix-hint.md"],
+  "inputExcludes": ["build-report.json"]
+}

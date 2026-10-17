@@ -1,0 +1,23 @@
+{
+  "name": "@forgedesk/engine-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Codex app-server stdio JSONL 适配层：EngineAdapter 实现与事件投影（引擎与工程 Agent 所有）",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --root .",
+    "build": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@forgedesk/contracts": "0.1.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "24.10.1",
+    "vitest": "5.0.4"
+  }
+}

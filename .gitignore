@@ -1,0 +1,18 @@
+# ForgeDesk 交付边界：只提交源码与文档，产物在 dist/ release/ 中生成
+node_modules/
+dist/
+release/
+out/
+*.log
+*.tsbuildinfo
+.runtime/
+.vite/
+tools/node_modules/
+tools/vendored/
+evidence-store/
+app-data/
+.electron-cache/
+
+# release-final 只保留 ui-audit 验收截图，安装包 exe/blockmap/构建日志不入库
+apps/desktop/release-final/*
+!apps/desktop/release-final/ui-audit/

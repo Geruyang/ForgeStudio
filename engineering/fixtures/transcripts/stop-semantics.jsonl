@@ -1,0 +1,7 @@
+{"seq":1,"connectionGeneration":1,"threadId":"th-fixture-3","emittedAt":"2026-10-14T06:20:00.000Z","type":"engine/status","status":"ready"}
+{"seq":2,"connectionGeneration":1,"threadId":"th-fixture-3","turnId":"turn-0004","emittedAt":"2026-10-14T06:20:01.000Z","type":"turn/started","turnId":"turn-0004","inputPreview":"执行长时间构建任务"}
+{"seq":3,"connectionGeneration":1,"threadId":"th-fixture-3","turnId":"turn-0004","emittedAt":"2026-10-14T06:20:02.000Z","type":"message/delta","delta":"正在分析工程结构..."}
+{"seq":4,"connectionGeneration":1,"threadId":"th-fixture-3","turnId":"turn-0004","emittedAt":"2026-10-14T06:20:03.000Z","type":"engine/status","status":"stopping"}
+{"seq":5,"connectionGeneration":1,"threadId":"th-fixture-3","turnId":"turn-0004","emittedAt":"2026-10-14T06:20:04.000Z","type":"tool/output","callId":"call-0002","outputPreview":"（工具收尾中）","isError":false}
+{"seq":6,"connectionGeneration":1,"threadId":"th-fixture-3","turnId":"turn-0004","emittedAt":"2026-10-14T06:20:05.000Z","type":"turn/completed","turnId":"turn-0004","status":"interrupted"}
+{"seq":7,"connectionGeneration":1,"threadId":"th-fixture-3","emittedAt":"2026-10-14T06:20:05.500Z","type":"engine/status","status":"stopped"}

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "templates": [
+    {
+      "templateId": "software-bugfix",
+      "title": "软件缺陷修复任务",
+      "appliesTo": { "profileKind": "software" },
+      "summary": "模型驱动的软件缺陷修复：定位→修改→受控验证→交付差异与证据（任务书 §3.3 软件故事）。可执行项三项 + 人工复核一项。",
+      "acceptance": [
+        {
+          "kind": "executable",
+          "verifierId": "software.build-pass",
+          "title": "构建通过",
+          "expected": "工程 profile 的 build 命令以退出码 0 结束，且 artifactsGlob 命中产物；产物 sha256 记入 Artifact 与证据。",
+          "manualRequired": false,
+          "required": true,
+          "order": 1
+        },
+        {
+          "kind": "executable",
+          "verifierId": "software.defect-repro-clear",
+          "title": "缺陷复现器由红转绿",
+          "expected": "修复前：profile 中的缺陷复现器 verifier（passExitCode=非0，如 sample-tool 的 wordcount-empty-crash-repro）复现崩溃成功；修复后：同一崩溃入口以退出码 0 正常完成（复现消失=缺陷已修复）。判定只认真实退出码与输出，不由模型自评。",
+          "manualRequired": false,
+          "required": true,
+          "order": 2
+        },
+        {
+          "kind": "executable",
+          "verifierId": "software.fixed-acceptance",
+          "title": "无回归（固定验收仍通过）",
+          "expected": "工程 profile verifiers 中用户选定的原有功能验收（passExitCode 与 stdoutMustContain/stdoutMustNotContain 规则）修复后仍全部通过；证据绑定当前输入指纹（A 级），输入变化后证据过期需重新验证。",
+          "manualRequired": false,
+          "required": true,
+          "order": 3
+        },
+        {
+          "kind": "manual",
+          "title": "人工复核代码差异",
+          "expected": "用户在代码差异面板逐文件审阅修改，确认修复正确、无未说明的越权改动、且未通过修改测试/验收定义骗绿（复现器翻转来自代码修复本身）后手动确认。",
+          "manualRequired": true,
+          "required": true,
+          "order": 4
+        }
+      ]
+    },
+    {
+      "templateId": "embedded-firmware-verify",
+      "title": "嵌入式固件验证任务",
+      "appliesTo": { "profileKind": "embedded" },
+      "summary": "固件构建→授权烧录→串口身份与行为验证→人工确认板卡连接（任务书 §3.3 嵌入式故事；T2）。",
+      "acceptance": [
+        {
+          "kind": "executable",
+          "verifierId": "embedded.build-artifact-digest",
+          "title": "构建产物哈希绑定",
+          "expected": "构建产物（ELF/BIN）的 sha256 写入 Artifact 并出现在任务证据中；烧录授权与回执绑定同一哈希。",
+          "manualRequired": false,
+          "required": true,
+          "order": 1
+        },
+        {
+          "kind": "executable",
+          "verifierId": "embedded.flash-receipt",
+          "title": "授权烧录回执",
+          "expected": "烧录在执行器核验的用户授权（指定设备+产物哈希+任务范围）下进行；烧录工具回执（toolReceiptPath）已保存且操作状态为 succeeded；状态为 unknown/failed 时本项不通过，需按任务书 §11 先核验设备，不自动重烧。",
+          "manualRequired": false,
+          "required": true,
+          "order": 2
+        },
+        {
+          "kind": "executable",
+          "verifierId": "embedded.serial-identity-behavior",
+          "title": "串口 nonce+buildId 响应",
+          "expected": "串口验证 nonce 匹配且 buildIdEchoPrefix 命中当前构建 buildId（身份不符/旧日志/错误 nonce 不算本轮证据）；行为输出符合预期。",
+          "manualRequired": false,
+          "required": true,
+          "order": 3
+        },
+        {
+          "kind": "manual",
+          "title": "人工确认板卡连接",
+          "expected": "用户目视确认目标板卡实际在位、连接与供电正常，板上行为（LED/串口输出/示波器等）与任务目标一致后手动确认。",
+          "manualRequired": true,
+          "required": true,
+          "order": 4
+        }
+      ]
+    }
+  ]
+}

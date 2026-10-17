@@ -1,0 +1,7 @@
+{"seq":1,"connectionGeneration":1,"threadId":"th-fixture-1","emittedAt":"2026-10-14T06:00:00.000Z","type":"engine/status","status":"ready"}
+{"seq":2,"connectionGeneration":1,"threadId":"th-fixture-1","turnId":"turn-0001","emittedAt":"2026-10-14T06:00:01.000Z","type":"turn/started","turnId":"turn-0001","inputPreview":"构建 sample-tool 并运行固定验收"}
+{"seq":3,"connectionGeneration":1,"threadId":"th-fixture-1","turnId":"turn-0001","emittedAt":"2026-10-14T06:00:02.000Z","type":"approval/requested","approval":{"requestId":"req-0001","connectionGeneration":1,"kind":"exec_command","summary":"node build.mjs（sample-tool 构建命令）","options":["accept","acceptForSession","decline","cancel"]}}
+{"seq":4,"connectionGeneration":1,"threadId":"th-fixture-1","turnId":"turn-0001","emittedAt":"2026-10-14T06:00:04.000Z","type":"approval/resolved","requestId":"req-0001","decision":"accept"}
+{"seq":5,"connectionGeneration":1,"threadId":"th-fixture-1","turnId":"turn-0001","itemId":"item-0001","emittedAt":"2026-10-14T06:00:05.000Z","type":"tool/called","callId":"call-0001","tool":"engineering.build","argsPreview":"{\"taskId\":\"task-fixture-0001\",\"profileRevision\":1}"}
+{"seq":6,"connectionGeneration":1,"threadId":"th-fixture-1","turnId":"turn-0001","itemId":"item-0001","emittedAt":"2026-10-14T06:00:06.000Z","type":"tool/output","callId":"call-0001","outputPreview":"BUILD_OK","isError":false}
+{"seq":7,"connectionGeneration":1,"threadId":"th-fixture-1","turnId":"turn-0001","emittedAt":"2026-10-14T06:00:07.000Z","type":"turn/completed","turnId":"turn-0001","status":"success"}

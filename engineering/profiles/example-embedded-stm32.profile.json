@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "example-embedded-stm32",
+  "revision": 1,
+  "title": "STM32F103 嵌入式示例（probe-rs + 串口验证）——未经实机验证",
+  "kind": "embedded",
+  "build": {
+    "exe": "cargo",
+    "args": ["build", "--release"],
+    "timeoutMs": 600000
+  },
+  "artifactsGlob": ["target/thumbv7m-none-eabi/release/firmware.elf"],
+  "verifiers": [],
+  "device": {
+    "chipTarget": "STM32F103C8",
+    "identity": {
+      "usbVid": 1155,
+      "usbPid": 14152,
+      "expectProbeSerial": true
+    },
+    "serial": {
+      "baudRate": 115200,
+      "verifyProtocol": {
+        "requestLine": "FORGEDESK_VERIFY ${nonce}",
+        "buildIdEchoPrefix": "BUILD_ID:"
+      },
+      "responseTimeoutMs": 10000
+    },
+    "flashCommand": {
+      "exe": "probe-rs",
+      "args": ["download", "--chip", "STM32F103C8", "${artifact}"],
+      "timeoutMs": 300000
+    },
+    "flashBudgetMs": 300000,
+    "verifyBudgetMs": 120000,
+    "readbackCommand": {
+      "exe": "probe-rs",
+      "args": ["verify", "--chip", "STM32F103C8", "${artifact}"],
+      "timeoutMs": 120000
+    }
+  },
+  "inputIncludes": ["Cargo.toml", "Cargo.lock", ".cargo/config.toml"],
+  "inputExcludes": ["target/**"]
+}

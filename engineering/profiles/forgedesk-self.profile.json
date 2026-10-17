@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "forgedesk-self",
+  "revision": 1,
+  "title": "ForgeDesk 自身构建与类型检查（软件 profile 示范）",
+  "kind": "software",
+  "build": {
+    "exe": "node",
+    "args": ["scripts/build-all.mjs"],
+    "timeoutMs": 600000
+  },
+  "artifactsGlob": ["dist/main/index.js"],
+  "verifiers": [
+    {
+      "verifierId": "self-typecheck",
+      "title": "契约与包类型检查",
+      "command": {
+        "exe": "node",
+        "args": ["scripts/verify-typecheck.mjs"],
+        "timeoutMs": 300000
+      },
+      "passExitCode": 0,
+      "stdoutMustContain": ["TYPECHECK_OK"],
+      "stdoutMustNotContain": [],
+      "outputLimitBytes": 2097152
+    },
+    {
+      "verifierId": "self-build",
+      "title": "完整构建（renderer+main+bridge+runner）",
+      "command": {
+        "exe": "node",
+        "args": ["scripts/build-all.mjs"],
+        "timeoutMs": 600000
+      },
+      "passExitCode": 0,
+      "stdoutMustContain": ["BUILD_OK"],
+      "stdoutMustNotContain": [],
+      "outputLimitBytes": 2097152
+    }
+  ],
+  "inputIncludes": ["package.json", "package-lock.json", "tsconfig.base.json"],
+  "inputExcludes": ["node_modules/**", "dist/**", "release/**", ".runtime/**"]
+}

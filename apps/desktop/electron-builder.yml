@@ -1,0 +1,63 @@
+appId: com.forgestudio.app
+productName: ForgeStudio
+copyright: ForgeStudio
+
+directories:
+  output: release
+  buildResources: build
+
+# 原生依赖（@serialport/bindings-cpp）为 N-API + prebuildify 自带预编译，
+# 跨 Electron ABI 免重编；跳过 @electron/rebuild（本机无 Python/node-gyp 工具链）
+npmRebuild: false
+
+files:
+  - dist/main/**
+  - dist/preload/**
+  - dist/renderer/**
+  - package.json
+
+# NSIS per-user 安装，默认不要求管理员（任务书 §12.1）
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ForgeStudio
+  # 卸载默认保留用户数据；删除数据需要用户明确选择
+  deleteAppDataOnUninstall: false
+
+win:
+  target:
+    - nsis
+  # 未预先拥有代码签名证书：交付时明确签名状态，不要求关闭系统安全机制
+
+extraResources:
+  # vendored Codex CLI（锁定 0.162.1，随包分发，不依赖全局安装）
+  - from: ../../tools/vendored/codex
+    to: engine/codex
+  # 工程 profile 模板与验收模板（fixtures 不入包）
+  - from: ../../engineering
+    to: engineering
+    filter:
+      - '**/*'
+      - '!fixtures/**'
+  # runner 服务 bundle + 自包含运行时依赖闭包（package.mjs 步骤 2 安装并校验）
+  # 注意：extraResources 对目录内的 node_modules 有默认过滤——闭包必须以
+  # node_modules 为拷贝根单独成项（与旧配置拷 workspace 提升目录同一机制）
+  - from: dist/runner
+    to: fd-runner
+    filter:
+      - '**/*'
+      - '!node_modules/**'
+  - from: dist/runner/node_modules
+    to: fd-runner/node_modules
+  # MCP 桥 bundle（codex 经 ELECTRON_RUN_AS_NODE 拉起）
+  - from: dist/bridge
+    to: fd-bridge
+
+asarUnpack:
+  - '**/*.node'
+
+electronDownload:
+  cache: ../../.electron-cache

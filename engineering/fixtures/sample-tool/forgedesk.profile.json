@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-tool-wordcount",
+  "revision": 1,
+  "title": "sample-tool wordcount CLI（T1 软件故事目标工程：含空输入崩溃缺陷）",
+  "kind": "software",
+  "build": {
+    "exe": "node",
+    "args": ["scripts/build.mjs"],
+    "timeoutMs": 60000
+  },
+  "artifactsGlob": ["build/build-manifest.json"],
+  "verifiers": [
+    {
+      "verifierId": "wordcount-normal",
+      "title": "正常文本词数统计正确",
+      "command": {
+        "exe": "node",
+        "args": ["tools/wordcount.mjs", "fixtures/normal.txt"],
+        "timeoutMs": 30000
+      },
+      "passExitCode": 0,
+      "stdoutMustContain": ["words=12"],
+      "stdoutMustNotContain": ["TypeError"],
+      "outputLimitBytes": 1048576
+    },
+    {
+      "verifierId": "wordcount-empty-crash-repro",
+      "title": "空输入崩溃缺陷复现器（非 0 退出 = 缺陷仍在；修复后本 verifier 失败，翻转判定属人工验收项）",
+      "command": {
+        "exe": "node",
+        "args": ["tools/wordcount.mjs", "fixtures/empty.txt"],
+        "timeoutMs": 30000
+      },
+      "passExitCode": 1,
+      "stdoutMustContain": [],
+      "stdoutMustNotContain": ["words=0"],
+      "outputLimitBytes": 1048576
+    }
+  ],
+  "inputIncludes": [
+    "tools/wordcount.mjs",
+    "test/wordcount.test.mjs",
+    "fixtures/normal.txt",
+    "fixtures/empty.txt",
+    "forgedesk.profile.json"
+  ],
+  "inputExcludes": ["build/**"]
+}

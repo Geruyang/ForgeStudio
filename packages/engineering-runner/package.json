@@ -1,0 +1,28 @@
+{
+  "name": "@forgedesk/engineering-runner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "工程执行器：操作状态、证据存储、执行适配与设备目录。状态/存储/HTTP 属引擎 Agent；src/device 属设备 Agent。",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./device": "./src/device/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --root . --reporter=default"
+  },
+  "dependencies": {
+    "@forgedesk/contracts": "0.1.0",
+    "zod": "3.25.76",
+    "serialport": "13.0.0",
+    "@serialport/bindings-cpp": "13.0.1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "24.10.1",
+    "vitest": "5.0.4"
+  }
+}

@@ -1,0 +1,11 @@
+{"seq":1,"connectionGeneration":1,"threadId":"th-fixture-2","emittedAt":"2026-10-14T06:10:00.000Z","type":"engine/status","status":"ready"}
+{"seq":2,"connectionGeneration":1,"threadId":"th-fixture-2","turnId":"turn-0002","emittedAt":"2026-10-14T06:10:01.000Z","type":"turn/started","turnId":"turn-0002","inputPreview":"修复 sample-tool 空输入崩溃"}
+{"seq":3,"connectionGeneration":1,"threadId":"th-fixture-2","turnId":"turn-0002","emittedAt":"2026-10-14T06:10:02.000Z","type":"approval/requested","approval":{"requestId":"req-0002","connectionGeneration":1,"kind":"apply_patch","summary":"应用补丁 tool.mjs（修复空输入崩溃）","options":["accept","acceptForSession","decline","cancel"]}}
+{"seq":4,"connectionGeneration":1,"threadId":"th-fixture-2","turnId":"turn-0002","emittedAt":"2026-10-14T06:10:03.000Z","type":"error","code":"connection_failure","message":"app-server 进程异常退出（模拟：引擎重启）","recoverable":true}
+{"seq":5,"connectionGeneration":1,"threadId":"th-fixture-2","turnId":"turn-0002","emittedAt":"2026-10-14T06:10:03.500Z","type":"turn/completed","turnId":"turn-0002","status":"interrupted","detail":"连接断开，回合未完成"}
+{"seq":6,"connectionGeneration":1,"threadId":"th-fixture-2","emittedAt":"2026-10-14T06:10:04.000Z","type":"engine/status","status":"error"}
+{"seq":7,"connectionGeneration":2,"threadId":"th-fixture-2","emittedAt":"2026-10-14T06:10:10.000Z","type":"engine/status","status":"ready"}
+{"seq":8,"connectionGeneration":2,"threadId":"th-fixture-2","turnId":"turn-0003","emittedAt":"2026-10-14T06:10:11.000Z","type":"turn/started","turnId":"turn-0003","inputPreview":"继续：修复 sample-tool 空输入崩溃"}
+{"seq":9,"connectionGeneration":2,"threadId":"th-fixture-2","turnId":"turn-0003","emittedAt":"2026-10-14T06:10:12.000Z","type":"approval/requested","approval":{"requestId":"req-0003","connectionGeneration":2,"kind":"apply_patch","summary":"应用补丁 tool.mjs（修复空输入崩溃）","options":["accept","acceptForSession","decline","cancel"]}}
+{"seq":10,"connectionGeneration":2,"threadId":"th-fixture-2","turnId":"turn-0003","emittedAt":"2026-10-14T06:10:14.000Z","type":"approval/resolved","requestId":"req-0003","decision":"accept"}
+{"seq":11,"connectionGeneration":2,"threadId":"th-fixture-2","turnId":"turn-0003","emittedAt":"2026-10-14T06:10:15.000Z","type":"turn/completed","turnId":"turn-0003","status":"success"}

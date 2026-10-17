@@ -1,0 +1,2 @@
+# 构建生成的派生产物（见 sample-tool.profile.json inputExcludes）
+build-report.json

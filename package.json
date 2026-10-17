@@ -1,0 +1,31 @@
+{
+  "name": "forgedesk",
+  "productName": "ForgeStudio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Windows 工程 Agent 工作台：代码、固件与真实测试结果一起交付",
+  "license": "LicenseRef-SEE-LICENSE-IN-LICENSE",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "workspaces": [
+    "apps/desktop",
+    "packages/contracts",
+    "packages/engine-adapter",
+    "packages/engineering-mcp",
+    "packages/engineering-runner"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck -w packages/contracts && npm run typecheck -w packages/engineering-runner && npm run typecheck -w packages/engineering-mcp && npm run typecheck -w packages/engine-adapter && npm run typecheck -w apps/desktop",
+    "build": "npm run build -w apps/desktop",
+    "test": "npm test -w packages/contracts && npm test -w packages/engineering-runner && npm test -w packages/engineering-mcp && npm test -w packages/engine-adapter",
+    "dev": "npm run dev -w apps/desktop",
+    "package": "npm run package -w apps/desktop"
+  },
+  "allowScripts": {
+    "electron@44.7.2": true,
+    "esbuild@0.28.2": true,
+    "@serialport/bindings-cpp@13.0.1": true,
+    "@serialport/bindings-cpp@13.0.0": true
+  }
+}

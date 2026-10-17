@@ -1,0 +1,22 @@
+{
+  "name": "@forgedesk/engineering-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "工程工具 MCP stdio 服务：七工具注册与 runner 控制协议桥接（引擎与工程 Agent 所有）",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --root . --reporter=default"
+  },
+  "dependencies": {
+    "@forgedesk/contracts": "0.1.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "24.10.1",
+    "vitest": "5.0.4"
+  }
+}
