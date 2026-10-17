@@ -77,6 +77,8 @@ export const IPC = {
     openExternalTerminal: 'app:open-external-terminal', // 标注为产品受控执行边界之外
     exportDiagnostics: 'app:export-diagnostics',
     ensureProject: 'app:ensure-project', // 选择/登记项目目录
+    /** 检查更新（Z2C：读取 updateFeedUrl 指向的 JSON 并比对版本；仅告知不安装） */
+    checkUpdate: 'app:check-update',
     /** 在外部终端拉起随包 CLI 的官方 login（CODEX_HOME=产品引擎目录，不复制既有客户端凭证） */
     openEngineLogin: 'app:open-engine-login',
     /** 多模型提供方（OpenAI 兼容 responses）：列表/配置/清除/控制台外链/模型拉取 */
@@ -123,6 +125,11 @@ export interface AppSettings {
   modelProvider?: { id: string; defaultModel?: string };
   /** 每提供方上次使用的模型（切换厂商时恢复选择；不含 key） */
   providerModelMemory?: Record<string, string>;
+  /**
+   * 更新源 JSON URL（Z2C scaffold：`{version, url, sha256, notes?}`；设置后「检查更新」
+   * 仅比对与告知，不自动下载安装——electron-updater 待代码签名与更新服务器就绪后引入）
+   */
+  updateFeedUrl?: string;
 }
 
 /** 多模型提供方目录（OpenAI 兼容 responses 协议——Codex 0.162.1 仅支持 responses；
@@ -304,6 +311,17 @@ export interface ForgeDeskBridge {
     configureModelProvider(req: { providerId: string; apiKey: string; defaultModel?: string }): Promise<OpResult<void>>;
     /** 清除某提供方的 key 与激活配置 */
     clearModelProvider(providerId: string): Promise<OpResult<void>>;
+    /** 检查更新（Z2C scaffold）：读 updateFeedUrl 的 JSON 比对版本；仅告知，不下载不安装 */
+    checkUpdate(): Promise<
+      OpResult<{
+        currentVersion: string;
+        latestVersion?: string;
+        updateAvailable: boolean;
+        downloadUrl?: string;
+        sha256?: string;
+        notes?: string;
+      }>
+    >;
     /** 打开某提供方的控制台（固定白名单 URL，取 key 用） */
     openProviderConsole(providerId: string): Promise<OpResult<void>>;
     /** 拉取某提供方的模型列表（GET {base}/models，用已配置 key；id 仅限固定目录） */

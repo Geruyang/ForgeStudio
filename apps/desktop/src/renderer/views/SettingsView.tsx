@@ -317,8 +317,69 @@ export function SettingsView() {
               </span>
             </div>
           )}
+
+          {/* Z2C 更新检查 scaffold：仅比对与告知，不自动下载安装 */}
+          <div className="fd-form__row">
+            <span className="fd-form__label">更新检查</span>
+            <UpdateCheckRow />
+          </div>
         </div>
       </div>
     </Modal>
+  );
+}
+
+function UpdateCheckRow() {
+  const settings = useAppStore((s) => s.settings);
+  const saveSettings = useAppStore((s) => s.saveSettings);
+  const [feedUrl, setFeedUrl] = useState(settings?.updateFeedUrl ?? '');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const check = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const url = feedUrl.trim();
+      if (url !== (settings?.updateFeedUrl ?? '')) await saveSettings({ updateFeedUrl: url || undefined });
+      if (!url) {
+        setResult('请先填写更新源 URL');
+        return;
+      }
+      const r = await window.forgedesk.app.checkUpdate();
+      if (!r.ok) {
+        setResult(`检查失败：${r.failure?.message ?? '未知错误'}`);
+        return;
+      }
+      setResult(
+        r.value.updateAvailable
+          ? `发现新版本 ${r.value.latestVersion}（当前 ${r.value.currentVersion}）${r.value.notes ? `：${r.value.notes}` : ''}——请从发布渠道手动下载安装`
+          : `已是最新版本（${r.value.currentVersion}）`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div data-testid="update-check-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <input
+        type="url"
+        value={feedUrl}
+        onChange={(e) => setFeedUrl(e.target.value)}
+        placeholder="https://…/update-feed.json"
+        aria-label="更新源 URL"
+        data-testid="update-feed-url"
+        style={{ flex: '1 1 260px', fontSize: 12, padding: '4px 8px' }}
+      />
+      <button type="button" className="fd-btn fd-btn--small" disabled={busy} onClick={() => void check()} data-testid="update-check-btn">
+        {busy ? '检查中…' : '检查更新'}
+      </button>
+      {result && (
+        <span style={{ fontSize: 11, color: 'var(--text-faint)', flexBasis: '100%' }} data-testid="update-check-result">
+          {result}
+        </span>
+      )}
+    </div>
   );
 }

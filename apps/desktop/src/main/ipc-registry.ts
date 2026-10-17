@@ -20,6 +20,7 @@ import type { SettingsStore } from './settings';
 import type { AppPaths } from './paths';
 import { writeDiagnostics } from './diagnostics';
 import { listProviderSummaries, configureProvider, clearProvider, listProviderModels } from './provider-config';
+import { checkForUpdate } from './update-check';
 
 export interface IpcContext {
   paths: AppPaths;
@@ -214,6 +215,12 @@ export function registerIpc(ctx: IpcContext): void {
   register(IPC.app.clearModelProvider, (e, providerId: string) =>
     clearProvider(ctx.paths.engineHome, ctx.settings, providerId),
   );
+  // Z2C 更新检查 scaffold：feed URL 来自用户设置；仅比对告知，不下载不安装
+  register(IPC.app.checkUpdate, async () => {
+    const feedUrl = (await ctx.settings.load()).updateFeedUrl?.trim();
+    if (!feedUrl) throw new Error('未配置更新源 URL（设置 → 诊断与关于 → 更新源）');
+    return checkForUpdate(ctx.getVersion(), feedUrl);
+  });
   register(IPC.app.openProviderConsole, async (e, providerId: string) => {
     const desc = MODEL_PROVIDERS.find((d) => d.id === providerId);
     if (!desc) throw new Error(`未知模型提供方: ${providerId}`);

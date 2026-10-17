@@ -104,3 +104,21 @@ npm run package        # 构建 → runner 依赖闭包 → electron-builder →
 4. 校验：`Get-FileHash tools\vendored\codex\codex.exe` 对照 DECISIONS D1 的
    SHA-256 `DD13BDB162A184FA04039488B234A8258EF9B76F84E926C505D5742B19249A6A`；
    不一致则停止并排查（版本漂移不得作为发行依据）
+
+## 发布物规范（Z2C，git 可追溯）
+
+每次正式发布（release-final 同步）必须记录三元组并写入 PROJECT_STATE：
+
+1. `git rev-parse HEAD`（源码 commit）
+2. 安装包 SHA-256（`Get-FileHash`）
+3. package.json version
+
+发布后构建 `update-feed.json`（Z2C 更新检查 scaffold 消费）：
+
+```json
+{ "version": "<新版本>", "url": "<下载地址>", "sha256": "<安装包 SHA-256>", "notes": "<要点>" }
+```
+
+更新源 URL 由用户在 设置 → 诊断与关于 → 更新检查 配置；当前仅比对与告知，
+不自动下载安装——electron-updater 完整通道（差分下载/签名校验/替换重启）
+待代码签名证书与更新服务器就绪后引入（见 ROADMAP Z2C）。

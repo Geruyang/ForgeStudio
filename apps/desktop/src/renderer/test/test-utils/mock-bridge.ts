@@ -115,6 +115,7 @@ export function createMockBridge(overrides: BridgeOverrides = {}): MockBridge {
     openPath: async () => unconfigured(),
     openExternalTerminal: async () => unconfigured(),
     exportDiagnostics: async () => unconfigured(),
+    checkUpdate: async () => unconfigured(),
     ensureProject: async () => unconfigured(),
     openEngineLogin: async () => unconfigured(),
     listModelProviders: async () => unconfigured(),

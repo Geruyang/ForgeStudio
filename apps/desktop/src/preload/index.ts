@@ -90,6 +90,7 @@ contextBridge.exposeInMainWorld('forgedesk', {
     configureModelProvider: (req: { providerId: string; apiKey: string; defaultModel?: string }) =>
       invoke(IPC.app.configureModelProvider, req),
     clearModelProvider: (providerId: string) => invoke(IPC.app.clearModelProvider, providerId),
+    checkUpdate: () => invoke(IPC.app.checkUpdate),
     openProviderConsole: (providerId: string) => invoke(IPC.app.openProviderConsole, providerId),
     listProviderModels: (providerId: string) => invoke(IPC.app.listProviderModels, providerId),
   },
