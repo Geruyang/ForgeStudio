@@ -139,6 +139,33 @@
 - 迁移后基线：ZCode 环境 Node v24.21.0 与原环境一致；typecheck 全绿。
 - 后续开发排期移至 **`docs/ROADMAP.md`**（Z0–Z3 阶段），本文件继续承担阶段状态记录。
 
+## Z1 阶段交付（2026-10-17，ZCode）
+
+- [x] **Z0-4 版本控制启用**：git init + 基线入库（7 commits）；`hasGit=true` 真实路径回归
+  （probeGit + captureSourceSnapshot 于仓库内 fixture，非检出环境自动跳过）。K-3 正式解除。
+- [x] **Z1-1 模型列表直拉实测**：发现 D19（2026-10-16 晚）已实现四家拉取 + providerModelMemory
+  但未记录未验证——本轮补 main 进程 node 测试环境（vitest projects 双环境）+ live 回归：
+  **方舟 35 / 智谱 3 / 千问 176 真实过**（含方舟下线剔除、Agent Plan 404 回落）；DeepSeek/Kimi
+  无 key 自动跳过（不算通过）。
+- [x] **Z1-3 token 用量呈现收尾**：发现 D19 已有 usage/updated 投影与 TokenUsageBar——补齐
+  测试并**修复会话切换残留缺陷**（session/started 未清 tokenUsage，旧线程用量串到新会话）。
+- [x] **Z1-4 should 场景补齐（部分）**：中文+空格路径端到端（真实构建/验收/快照指纹）+
+  输入组合（二进制单字节可检出、200 文件深嵌套确定性）。未做：B级快照（Z2）、热插拔/长串口
+  （设备 fixture 扩展）、第二 Windows 用户（需环境）。
+- [x] **Z1-5 多会话管理纵切片**：重命名（title meta 持久化 + thread/name/set 同步）、删除
+  （幂等清文件 + thread/delete）、搜索（标题/项目根过滤）、上下文压缩（thread/compact/start +
+  session/compacted 事件投影 + ChatView 入口）。**契约 v1 增量**（集成负责人变更）：
+  CLIENT_METHODS +3、EngineAdapter +3 方法、EngineEvent +session/compacted、IPC +3 通道。
+- [x] **Z1-2 D-12a 根修**：根因定位为 refreshTask 并发响应乱序回达时旧快照覆盖新状态
+  （SSE 事件风暴 → 多并发 getTask → upsertTask 无条件替换）。修复：per-task 单飞合并 +
+  updatedAt 单调防御，3 例回归。**走查重试兜底可撤**（待安装态走查复验后移除）。
+
+### Z1 测试基线
+
+typecheck 0 错误；全量回归：contracts 34 / runner 146（+git 2、+组合 5）/ mcp 36 /
+adapter 60（+usage 2、+会话管理 5）/ desktop 72+6 skip（+token 6、+会话管理 8、+竞态 3；
+skip 为无 FD_LIVE_ENGINE_HOME 的 live 用例）。
+
 ## 下一步
 
 见 `docs/ROADMAP.md`（ZCode 阶段开发安排：Z0 迁移基线 → Z1 产品补全 → Z2 发布工程 →
