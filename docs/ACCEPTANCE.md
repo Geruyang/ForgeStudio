@@ -326,3 +326,25 @@
   走查已加重试缓解）；②原生目录对话框自动化在 Windows 前台锁定下不安全（SendKeys 误投
   风险，实测教训），目录选择留人工——向导 create 模式的目录环节未走自动化实操；③带真实
   key 的模型链仍待 K-1。
+
+### A-14-SSH FZ3B 实机构建与验收（Z3，2026-10-17，SSH 型 Linux 目标）
+- 版本：ForgeStudio v15 @ dad7348
+- 动作/命令：`FZ3B_HOST=169.254.220.254 FZ3B_USER=ubuntu FZ3B_PASSWORD=*** npx vitest run --root packages/engineering-runner test/ssh-fz3b.live.test.ts`
+- 预期：main.c 上传 → 板上 gcc 构建（aarch64 原生）→ 板上运行 → TESTS_PASSED + BOARD_HOST 身份回报 → 证据落库 → 验收项点亮
+- 实际：**通过（1/1，4.0s 全链）**；板上构建 succeeded，产物 sha256 f9c8ada9…（真实 aarch64 ELF），
+  验收 passed、证据 result=passed、验收项点亮。目标：FZ3B/ZU3EG（Ubuntu 18.04.5，内核
+  4.14.0-xilinx-v2018.3，eth0 MAC 00:0a:35:0b:83:da）。
+- 证据位置：packages/engineering-runner/test/ssh-fz3b.live.test.ts（skipIf 环境未配置）；
+  运行输出见本轮会话记录（[live] 板上构建成功/产物 sha256）
+- 级别：T2（SSH 型目标实机；STM32/probe-rs 路线另计，按用户指示暂缓）
+
+### v15 安装态验收（Z2A，2026-10-17）
+- 版本：ForgeStudio v15（NSIS，SHA-256 F8661AD1C6B488E6ACD536F687242F249CB5A52BC298D19AEB31EDBB5B871C94，未签名）
+- A-10/A-13 安装态深检：静默安装（卸 v14 后全新安装；此前一次安装器悬挂系杀软/句柄环境问题，
+  重试成功）→ v15 内容标记核验 → **13 步冒烟全绿**（真实构建/验收/幂等/过期/导出/MCP 桥 7 工具握手）
+- A-16' GUI 走查（扩展版）：**exit=0，31 断言全绿**——含 7 步 D-12a 真·背靠背复验
+  （两验证按钮连点、无重试兜底、直接 2/2 点亮；重试兜底代码已删除）与 9c 会话管理
+  （搜索/空态/重命名/两步删除/压缩入口渲染条件，键盘级 CDP 输入驱动）
+- A-12（模型驱动闭环 v15 复验）：**阻塞**——ChatGPT 订阅额度用尽（原文"You've hit your usage
+  limit…try again at Oct 23rd, 2026"；引擎如实呈现 systemError 不虚报）。v15 引擎链健康由走查
+  step 9 证明（握手/thread/start/authStatus/预热模型下拉 8 项）
