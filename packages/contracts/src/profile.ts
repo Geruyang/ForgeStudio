@@ -97,6 +97,12 @@ export const EngineeringProfileSchema = z.object({
   artifactsGlob: z.array(z.string()).min(1),
   /** 验收定义集合（可执行项） */
   verifiers: z.array(SoftwareVerifierSchema),
+  /**
+   * B 级快照构建（任务书 §8.2 B 级，P0-6）：启用后执行器把任务输入清单复制到
+   * 内容寻址的任务专属快照目录，构建/验收从快照执行、产物独立归档；
+   * 证据级别记 B。声明口径仍为"证据绑定快照内容"，不宣称防篡改。
+   */
+  buildFromSnapshot: z.boolean().default(false),
   /** 嵌入式设备配置（kind=embedded 必填） */
   device: DeviceProfileSchema.optional(),
   /** 输入清单补充：显式参与的配置/锁文件（相对项目根） */

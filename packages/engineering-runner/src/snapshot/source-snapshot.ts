@@ -326,3 +326,24 @@ export async function captureSourceSnapshot(args: CaptureSnapshotArgs): Promise<
 
 /** matchPath 再导出，供操作层 glob 产物复用 */
 export { matchPath };
+
+/**
+ * B 级快照文件复制（任务书 §8.2）：按清单把输入从 projectRoot 复制到 destDir（幂等覆盖；
+ * 内容寻址目录同 digest 内容相同）。不写任何额外标记文件——快照目录内容必须与源清单
+ * 严格一致，否则复核指纹会误报过期（快照路径由 DB 的 snapshot_path 记录）。
+ */
+export async function copySnapshotFiles(
+  projectRoot: string,
+  manifest: Array<{ path: string }>,
+  destDir: string,
+): Promise<void> {
+  const { mkdir, copyFile } = await import('node:fs/promises');
+  const pathMod = await import('node:path');
+  await mkdir(destDir, { recursive: true });
+  for (const m of manifest) {
+    const rel = m.path.split('/').join(pathMod.sep);
+    const dest = pathMod.join(destDir, rel);
+    await mkdir(pathMod.dirname(dest), { recursive: true });
+    await copyFile(pathMod.join(projectRoot, rel), dest);
+  }
+}

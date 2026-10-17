@@ -38,6 +38,13 @@ export function EvidenceSnapshotCard({ task }: { task: TaskOverview }) {
       ) : (
         <div className="device-row__meta">尚未采集输入指纹（先运行环境检查/构建）。</div>
       )}
+      {snap && (
+        <div className="device-row__meta" style={{ fontSize: 11 }}>
+          {snap.evidenceLevel === 'B'
+            ? 'B 级：证据绑定任务专属输入快照内容（构建/验收从快照执行，产物独立归档）。'
+            : 'A 级：模型可写范围内的输入变化可被检测，但不构成防篡改保证。'}
+        </div>
+      )}
       {snap && Object.keys(snap.toolVersions).length > 0 && (
         <div className="device-row__meta" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {Object.entries(snap.toolVersions).map(([tool, ver]) => (

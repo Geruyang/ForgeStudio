@@ -51,6 +51,7 @@ import type { Storage } from '../storage/database.ts';
 import type { ProfileLoader } from '../profiles/loader.ts';
 import {
   captureSourceSnapshot,
+  copySnapshotFiles,
   SnapshotLimitError,
 } from '../snapshot/source-snapshot.ts';
 import { walkFiles, sha256File, sha256Of, canonicalJson, toPosix, matchAny } from '../snapshot/digests.ts';
@@ -965,6 +966,21 @@ export class OpsEngine {
   // SSH 远程执行（Z3-FZ3B：Linux SoC 板卡上的构建/验收）
   // ---------------------------------------------------------------------------
 
+  /**
+   * B 级快照物化：复制输入到 dataDir/snapshots/<taskId>-<digest8>，快照记录改 B 级并回填路径。
+   * 返回快照目录（构建/验收/复核均以该目录为根；源目录漂移由下次操作的新鲜指纹暴露）。
+   */
+  async #materializeSnapshot(
+    task: { id: string; projectRoot: string },
+    snapshot: Awaited<ReturnType<typeof captureSourceSnapshot>>,
+  ): Promise<string> {
+    const dir = path.join(this.dataDir, 'snapshots', `${task.id}-${snapshot.inputDigest.slice(0, 8)}`);
+    await copySnapshotFiles(task.projectRoot, snapshot.inputManifest, dir);
+    snapshot.evidenceLevel = 'B';
+    snapshot.snapshotPath = dir;
+    return dir;
+  }
+
   /** 远程执行准备：无 ssh 目标返回 null；有则连接 + 上传任务输入清单到内容寻址目录 */
   async #sshSetup(
     cmd: ProfileCommand,
@@ -972,6 +988,7 @@ export class OpsEngine {
     inputManifest: Array<{ path: string }>,
     inputDigest: string,
     logRefHint: string,
+    inputSourceRoot?: string,
   ): Promise<{ session: SshSession; dir: string; target: SshTarget } | null> {
     const target = cmd.ssh;
     if (!target) return null;
@@ -983,12 +1000,13 @@ export class OpsEngine {
         logRefHint,
       );
     }
+    const sourceRoot = inputSourceRoot ?? task.projectRoot;
     const session = await this.sshTransport(target);
     const dir = remoteTaskDir(target, task.id, inputDigest);
     const files: Array<{ rel: string; content: Buffer }> = [];
     for (const m of inputManifest) {
       const rel = toPosix(m.path);
-      files.push({ rel, content: await fsp.readFile(path.join(task.projectRoot, rel)) });
+      files.push({ rel, content: await fsp.readFile(path.join(sourceRoot, rel)) });
     }
     await session.uploadInputs(dir, files);
     return { session, dir, target };
@@ -1036,15 +1054,20 @@ export class OpsEngine {
       profileFileSha256: loaded.fileSha256,
       toolVersions,
     });
+    // B 级快照构建（任务书 §8.2）：输入复制到内容寻址任务目录，构建/验收从快照执行
+    let buildRoot = task.projectRoot;
+    if (loaded.profile.buildFromSnapshot) {
+      buildRoot = await this.#materializeSnapshot(task, before);
+    }
     this.storage.insertSnapshot(before);
 
     // 构建前生成 buildId（uuid）：产物与固件身份的锚点
     const buildId = randomUUID();
     const cmd = loaded.profile.build;
-    const cwd = cmd.cwd ? path.resolve(task.projectRoot, cmd.cwd) : task.projectRoot;
+    const cwd = cmd.cwd ? path.resolve(buildRoot, cmd.cwd) : buildRoot;
     // SSH 目标（Z3-FZ3B）：上传输入 → 板上构建 → 产物取回本地证据管线
-    const remote = await this.#sshSetup(cmd, task, before.inputManifest, before.inputDigest, '');
-    const artifactSearchDir = remote ? path.join(ctx.logDir, 'remote-artifacts') : task.projectRoot;
+    const remote = await this.#sshSetup(cmd, task, before.inputManifest, before.inputDigest, '', buildRoot === task.projectRoot ? undefined : buildRoot);
+    const artifactSearchDir = remote ? path.join(ctx.logDir, 'remote-artifacts') : buildRoot;
     let r!: CommandResult;
     let artifactNames: string[] = [];
     try {
@@ -1096,7 +1119,7 @@ export class OpsEngine {
     if (remote) {
       matches = [...artifactNames].sort();
     } else {
-      const files = await walkFiles(task.projectRoot, { skipDirNames: ['node_modules', '.git'], maxFiles: 60_000 });
+      const files = await walkFiles(buildRoot, { skipDirNames: ['node_modules', '.git'], maxFiles: 60_000 });
       matches = files.filter((f) => matchAny(f, loaded.profile.artifactsGlob)).sort();
     }
     if (matches.length === 0) {
@@ -1130,10 +1153,11 @@ export class OpsEngine {
     };
     this.storage.insertArtifact(artifact);
 
-    // 执行后输入指纹复核：变化 → evidence_stale（不为当前状态点亮）
+    // 执行后输入指纹复核：变化 → evidence_stale（不为当前状态点亮）。
+    // B 级快照构建：复核针对快照目录（快照内容不变 ⇒ 不误报）；源目录漂移由下次操作的新鲜指纹暴露。
     const after = await captureSourceSnapshot({
       taskId: task.id,
-      projectRoot: task.projectRoot,
+      projectRoot: loaded.profile.buildFromSnapshot ? buildRoot : task.projectRoot,
       profile: loaded.profile,
       profileFileSha256: loaded.fileSha256,
       toolVersions,
@@ -1194,12 +1218,21 @@ export class OpsEngine {
       profileFileSha256: loaded.fileSha256,
       toolVersions,
     });
-    this.storage.insertSnapshot(snapshot);
 
     const cmd = verifier.command;
-    const cwd = cmd.cwd ? path.resolve(task.projectRoot, cmd.cwd) : task.projectRoot;
+    // B 级快照：验收同样从快照执行（内容寻址目录，输入未变则与构建共用同一份）；
+    // 物化会回填 snapshot.evidenceLevel/snapshotPath，故在落库前执行
+    let verifyRoot = task.projectRoot;
+    if (loaded.profile.buildFromSnapshot) {
+      verifyRoot = await this.#materializeSnapshot(task, snapshot);
+    }
+    this.storage.insertSnapshot(snapshot);
+    const cwd = cmd.cwd ? path.resolve(verifyRoot, cmd.cwd) : verifyRoot;
     // SSH 目标（Z3-FZ3B）：同一任务目录（内容寻址，输入未变则命中构建时上传的文件）板上验收
-    const remote = await this.#sshSetup(cmd, task, snapshot.inputManifest, snapshot.inputDigest, '');
+    const remote = await this.#sshSetup(
+      cmd, task, snapshot.inputManifest, snapshot.inputDigest, '',
+      verifyRoot === task.projectRoot ? undefined : verifyRoot,
+    );
     let r!: CommandResult;
     try {
       if (remote) {
@@ -1259,10 +1292,11 @@ export class OpsEngine {
       result = exitOk && mustContainOk && mustNotContainOk ? 'passed' : 'failed';
     }
 
-    // 执行后输入复核：变化 → 证据标 stale（M5：不为当前状态点亮通过）
+    // 执行后输入复核：变化 → 证据标 stale（M5：不为当前状态点亮通过）；
+    // B 级快照：复核针对快照目录（快照内容不变 ⇒ 不误报），源漂移由下次操作的新鲜指纹暴露
     const after = await captureSourceSnapshot({
       taskId: task.id,
-      projectRoot: task.projectRoot,
+      projectRoot: loaded.profile.buildFromSnapshot ? verifyRoot : task.projectRoot,
       profile: loaded.profile,
       profileFileSha256: loaded.fileSha256,
       toolVersions,
