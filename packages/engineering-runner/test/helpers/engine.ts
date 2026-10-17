@@ -19,10 +19,10 @@ export interface EngineFixture {
 
 export async function makeEngine(
   variant: Parameters<typeof writeFixtureProject>[0],
-  opts?: { sideEffectBuild?: boolean; adapter?: DeviceAdapter | null; acceptance?: 'smoke' | 'proposed-extra' | 'none' },
+  opts?: { sideEffectBuild?: boolean; adapter?: DeviceAdapter | null; acceptance?: 'smoke' | 'proposed-extra' | 'none'; rootName?: string },
 ): Promise<EngineFixture> {
   const dataDir = await makeTmpDataDir();
-  const fx = await writeFixtureProject(variant, { sideEffectBuild: opts?.sideEffectBuild });
+  const fx = await writeFixtureProject(variant, { sideEffectBuild: opts?.sideEffectBuild, rootName: opts?.rootName });
   const storage = new Storage(dataDir);
   const profiles = new ProfileLoader([fx.profileDir]);
   await profiles.reload();

@@ -65,8 +65,14 @@ export async function makeTmpDir(prefix: string): Promise<string> {
   return await fsp.mkdtemp(path.join(tmpdir(), `forgedesk-${prefix}-`));
 }
 
-export async function writeFixtureProject(variant: FixtureVariant, opts?: { sideEffectBuild?: boolean }): Promise<FixtureProject> {
-  const root = await makeTmpDir('proj');
+export async function writeFixtureProject(
+  variant: FixtureVariant,
+  opts?: { sideEffectBuild?: boolean; rootName?: string },
+): Promise<FixtureProject> {
+  const base = await makeTmpDir('proj');
+  // should 场景（任务书 §15.2 路径组合）：rootName 指定时在其下再建自定义命名子目录
+  const root = opts?.rootName ? path.join(base, opts.rootName) : base;
+  if (opts?.rootName) await fsp.mkdir(root, { recursive: true });
   const profileDir = await makeTmpDir('profiles');
   const profileId = `fixture-${variant}${opts?.sideEffectBuild ? '-se' : ''}`;
   await fsp.mkdir(path.join(root, 'src'), { recursive: true });
