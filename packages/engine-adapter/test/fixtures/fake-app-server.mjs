@@ -48,6 +48,7 @@ const C = {
   exitCode: config.exitCode ?? 3,
   emitThreadStarted: config.emitThreadStarted ?? true,
   errorNotification: config.errorNotification ?? false,
+  tokenUsage: config.tokenUsage ?? false,
 };
 
 const rxLog = process.env.FD_FIXTURE_RX_LOG ?? null;
@@ -302,6 +303,32 @@ async function runTurnScript() {
           willRetry: false,
           threadId,
           turnId,
+        });
+      }
+      if (C.tokenUsage) {
+        // v2/ThreadTokenUsageUpdatedNotification 原形：total 为线程累计口径
+        notify('thread/tokenUsage/updated', {
+          threadId,
+          turnId,
+          tokenUsage: {
+            total: {
+              totalTokens: 12500,
+              inputTokens: 9000,
+              cachedInputTokens: 4000,
+              cacheWriteInputTokens: 200,
+              outputTokens: 3500,
+              reasoningOutputTokens: 1500,
+            },
+            last: {
+              totalTokens: 3500,
+              inputTokens: 2000,
+              cachedInputTokens: 0,
+              cacheWriteInputTokens: 0,
+              outputTokens: 1500,
+              reasoningOutputTokens: 500,
+            },
+            modelContextWindow: 272000,
+          },
         });
       }
       if (C.turnStatus === 'failed') {

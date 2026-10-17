@@ -338,6 +338,38 @@ describe('steer 语义', () => {
 });
 
 // ---------------------------------------------------------------------------
+// token 用量投影（thread/tokenUsage/updated → usage/updated；D19 实现的回归）
+// ---------------------------------------------------------------------------
+
+describe('token 用量投影', () => {
+  it('thread/tokenUsage/updated → usage/updated：取 total 累计口径 + modelContextWindow，字段完整', async () => {
+    const h = track(createHarness({ scenario: 'basic', authMode: 'apikey', tokenUsage: true }));
+    await h.adapter.start({ projectRoot: h.root });
+    await h.adapter.send('请运行测试');
+    const usage = await h.wait((e) => e.type === 'usage/updated');
+    if (usage.type !== 'usage/updated') throw new Error('unreachable');
+    expect(usage.usage).toEqual({
+      totalTokens: 12500,
+      inputTokens: 9000,
+      cachedInputTokens: 4000,
+      outputTokens: 3500,
+      reasoningOutputTokens: 1500,
+      modelContextWindow: 272000,
+    });
+    expect(usage.turnId).toBe('tu-fixture-0001');
+    await h.wait((e) => e.type === 'turn/completed');
+  });
+
+  it('fixture 不发该通知时（默认 basic）：不产生 usage/updated（不虚报）', async () => {
+    const h = track(createHarness({ scenario: 'basic', authMode: 'apikey' }));
+    await h.adapter.start({ projectRoot: h.root });
+    await h.adapter.send('请运行测试');
+    await h.wait((e) => e.type === 'turn/completed');
+    expect(of(h.events, 'usage/updated')).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // interrupt（只是取消请求，等终态事件）
 // ---------------------------------------------------------------------------
 

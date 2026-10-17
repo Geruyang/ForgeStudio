@@ -1336,6 +1336,8 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
           patch.liveThreadId = event.threadId;
           patch.activeThreadId = event.threadId;
           patch.conversationMode = 'live';
+          // 会话切换即清上一线程的累计用量（新线程未发 tokenUsage/updated 前不显示旧值）
+          patch.tokenUsage = null;
         }
         if (event.type === 'turn/started') {
           patch.turnRunning = true;

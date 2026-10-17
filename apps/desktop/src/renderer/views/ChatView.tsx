@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { useAppStore } from '../store/context';
-import type { TokenUsageSummary } from '../contracts/engine';
+import { TokenUsageBar } from '../components/chat/TokenUsageBar';
 import { MessageItem } from '../components/chat/MessageItem';
 import { ApprovalCard } from '../components/chat/ApprovalCard';
 import { TurnStatusBar } from '../components/chat/TurnStatusBar';
@@ -12,31 +12,6 @@ import { Composer, SteerNoticeBanner } from '../components/chat/Composer';
 import { ErrorDetail } from '../components/common/ErrorDetail';
 import { EmptyState } from '../components/common/EmptyState';
 import { ForgeMark } from '../components/brand/Logo';
-
-function fmtTokens(n: number): string {
-  if (n >= 100000) return `${Math.round(n / 1000)}k`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
-  return String(n);
-}
-
-/** 本回合 token 用量小条：usage/updated 事件驱动，无数据时不渲染。 */
-function TokenUsageBar({ usage }: { usage: TokenUsageSummary }) {
-  if (usage.totalTokens <= 0) return null;
-  const parts = [`入 ${fmtTokens(usage.inputTokens)}`, `出 ${fmtTokens(usage.outputTokens)}`];
-  if (usage.cachedInputTokens > 0) parts.push(`缓存 ${fmtTokens(usage.cachedInputTokens)}`);
-  if (usage.reasoningOutputTokens > 0) parts.push(`思考 ${fmtTokens(usage.reasoningOutputTokens)}`);
-  return (
-    <div
-      data-testid="token-usage-bar"
-      style={{ margin: '8px 22px 0', fontSize: 11, color: 'var(--text-faint)' }}
-    >
-      本回合 Token：{parts.join(' · ')}
-      {usage.modelContextWindow != null && usage.modelContextWindow > 0
-        ? ` · 上下文窗口 ${fmtTokens(usage.modelContextWindow)}`
-        : ''}
-    </div>
-  );
-}
 
 export function ChatView() {
   const conversation = useAppStore((s) => s.conversation);
