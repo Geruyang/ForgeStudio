@@ -181,3 +181,45 @@ Z3 硬件实机条件项）。
 | 代码签名（可选） | 签名证书/服务 | 安装包免 SmartScreen 告警 |
 
 不阻塞项：UI、协议、存储、设备适配代码、打包、fixture、文档已全部就绪。
+
+## Z2/Z3 阶段交付（2026-10-17 晚，ZCode；正式包 v15）
+
+- [x] **Z3-FZ3B 硬件接入（T2 首段实机）**：FZ3B/ZU3EG 经以太网点对点发现（169.254.220.254，
+  MAC 00:0a:35:…），SSH 手工演练通过（ubuntu/ubuntu，板上 gcc/make/python3）。集成方式：
+  **SSH 远程执行作为 profile 命令可选传输**（契约 v1 增量：ProfileCommand.ssh/SshTarget，
+  密码经环境变量注入）；runner 上传输入清单到板上内容寻址目录 → 板上构建/验收 →
+  产物取回本地证据管线。fixture 3 例 + **实机验收 1 例**（main.c→板上 gcc→板上运行→
+  TESTS_PASSED+BOARD_HOST 回报→证据落库→验收点亮，4.0s 全链）。STM32/probe-rs 路线按用户指示暂缓。
+- [x] **Z2B-1 B 级快照证据**：profile.buildFromSnapshot 启用后输入复制到任务专属内容寻址快照目录，
+  构建/验收从快照执行、产物独立归档、快照记录 B 级+snapshotPath；复核针对快照（源漂移不误报本次，
+  M5 时效语义保持——构建期间源被改的用例证明隔离生效且后续验收不点亮）。UI 文案合规
+  （A 级注明"不构成防篡改保证"；B 级注明快照绑定）。
+- [x] **Z2B-2 review/start**：评估完成——完整审阅面板留待后续，引擎侧接口先行
+  （EngineAdapter.startReview，当前线程 inline/uncommittedChanges，2 例回归）。
+- [x] **Z2B-3 设备 fixture 扩展**：热插拔身份变化（序列号变化→新绑定不复用；换型号→拒绝）、
+  长串口流（1000 行旧日志+50 噪声→flush 丢弃、nonce 判定不受干扰）。
+- [x] **Z2C 更新检查 scaffold + 发布物规范**：AppSettings.updateFeedUrl + app:check-update
+  （仅比对告知，不下载安装；6 例测试）；BUILD.md 发布三元组与 update-feed.json 规范。
+- [x] **Z2A 打包验证关口（v15）**：
+  - 构建+NSIS 打包：**SHA-256 `F8661AD1C6B488E6ACD536F687242F249CB5A52BC298D19AEB31EDBB5B871C94`**
+    （未签名；对应 commit 见 ROADMAP 发布记录；release-final 已留存）
+  - 静默安装 + v15 标记核验（asar 含 checkUpdate/renameThread、runner 含 ssh-transport）
+  - **安装态冒烟 13/13 全绿**（A-13 深检口径：真实构建/验收/幂等/证据过期/导出/MCP 桥 7 工具）
+  - **GUI 走查 exit=0，31 项断言全绿**：新增 D-12a 真·背靠背复验（双验证连点直接点亮，重试兜底已撤）、
+    会话管理 9c（搜索过滤/空态/清空/行内重命名/两步删除/压缩入口渲染条件）；React 19 受控输入
+    需 CDP 键盘级事件驱动（原生 setter+input 事件无效）已记入脚本
+  - model-task-e2e（A-12 v15 复验）：**阻塞于 ChatGPT 订阅额度用尽（10-23 重置）**——引擎如实
+    呈现 systemError 与配额原文（不虚报）；v15 引擎链健康已由走查 step 9（握手/authStatus/预热）证明
+
+### Z2/Z3 测试基线
+
+contracts 34 / runner 151（+B级快照 2、+热插拔长流 2）/ mcp 36 / adapter 62（+review 2）/
+desktop 79+6skip（+更新检查 7）；typecheck 0 错误；安装态 13 步冒烟 + 31 断言走查全绿。
+
+## 下一步（v15 后）
+
+1. **A-12 v15 复验**：ChatGPT 额度恢复（10-23）或切换方舟/智谱 key 激活后重跑 model-task-e2e
+2. **FZ3B 工程深化**：真实工程样例（板上 make 工程 profile）、B 级快照+SSH 组合、设备授权卡与
+   SSH 目标的 UI 呈现（当前经 profile 直达）
+3. Z2C 完整更新通道（electron-updater，待签名证书）；审阅面板（review/start UI）
+4. 第二用户回归、DeepSeek/Kimi 列表 live（待外部输入）

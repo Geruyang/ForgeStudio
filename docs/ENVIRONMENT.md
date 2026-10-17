@@ -58,3 +58,15 @@
 - 已安装版本实证（2026-10-14 晚，A-10）：`ForgeDesk Setup 0.1.0.exe` SHA-256
   `6FFD8365835CD8E8DB346B8B9155F732FAE82EE7CD195BE0B56F5C972F6AE6AB`，未签名；
   安装态 codex.exe 哈希与 vendored 清单一致（DD13BDB1…）
+
+## 板卡（Z3，2026-10-17 接入）
+
+- **FZ3B**（ZYNQ UltraScale+ ZU3EG，aarch64）：以太网点对点连接
+  - 地址 169.254.220.254（链路本地，eth0 MAC 00:0a:35:0b:83:da 为稳定身份）
+  - SSH：ubuntu/ubuntu（默认凭据，用户确认未改）；Ubuntu 18.04.5，内核 4.14.0-xilinx-v2018.3，4 核 1.9GB
+  - 板上工具链：gcc / make / python3.6.9（/tmp 可用 1.8G）——板上原生构建可行
+  - 实测注意：OpenSSH 7.6 在 SFTP 通道并存时 exec 流 close 事件可能延迟（exit 正常）——适配层已按 exit 先到先析处理
+- live 测试运行方式：
+  - 提供方模型列表：FD_LIVE_ENGINE_HOME=%APPDATA%ForgeStudioengine（npm test -w apps/desktop 自动 skip 未配置项）
+  - FZ3B 实机：FZ3B_HOST/FZ3B_USER/FZ3B_PASSWORD（packages/engineering-runner test/ssh-fz3b.live.test.ts）
+- 模型配额：ChatGPT 订阅额度已于 2026-10-17 用尽（10-23 重置）；方舟/智谱/千问 key 已配置

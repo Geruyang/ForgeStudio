@@ -62,6 +62,25 @@ async function main() {
       ws.send(JSON.stringify({ id, method, params }));
     });
 
+  /**
+   * 键盘级输入（React 19 受控组件不吃原生 value setter + input 事件——实测无效；
+   * CDP Input 事件走真实输入管线）。先全选清空再插入文本。
+   */
+  const typeInto = async (selector, text) => {
+    await evalJs(`document.querySelector(${JSON.stringify(selector)})?.focus()`);
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', modifiers: 2, windowsVirtualKeyCode: 65 });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'a', modifiers: 2, windowsVirtualKeyCode: 65 });
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Backspace', windowsVirtualKeyCode: 8 });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', windowsVirtualKeyCode: 8 });
+    if (text.length > 0) await send('Input.insertText', { text });
+    await sleep(150);
+  };
+
+  const pressEnter = async () => {
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', windowsVirtualKeyCode: 13 });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', windowsVirtualKeyCode: 13 });
+  };
+
   const evalJs = async (expr, timeoutMs = 15000) => {
     let lastErr;
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -221,15 +240,25 @@ async function main() {
   await evalJs(`document.querySelector('.modal .modal__close')?.click()`);
   await waitFor(`!document.querySelector('[data-testid="settings-language"]')`, 5000, 'provider panel closed');
 
-  log('3', '桥建任务（与向导同一 IPC 通道；已有同名任务则复用）');
+  log('3', '桥建任务（与向导同一 IPC 通道；同名且同项目根的任务复用，否则新建）');
   const existing = await evalJs(`window.forgedesk.runner.listTasks()`);
   const existingTask = existing?.ok
-    ? existing.value.find((t) => String(t.title).includes(TASK_TITLE.slice(0, 12)))
+    ? existing.value.find(
+        (t) =>
+          String(t.title).includes(TASK_TITLE.slice(0, 12)) &&
+          String(t.projectRoot ?? '').replace(/\\/g, '/').replace(/\/$/, '') === PROJECT_ROOT.replace(/\/$/, ''),
+      )
     : null;
+  if (existing?.ok) {
+    const stale = existing.value.filter(
+      (t) => String(t.title).includes(TASK_TITLE.slice(0, 12)) && t.id !== existingTask?.id,
+    );
+    if (stale.length > 0) log('3', `跳过 ${stale.length} 个同名但项目根不同的旧任务（如迁移前目录，证据必然过期）`);
+  }
   let taskId;
   if (existingTask) {
     taskId = existingTask.id;
-    log('3', `复用既有任务 ${taskId}`);
+    log('3', `复用既有任务 ${taskId}（项目根一致）`);
   } else {
     const created = await evalJs(`window.forgedesk.runner.createTask({
       projectRoot: ${JSON.stringify(PROJECT_ROOT)},
@@ -283,33 +312,21 @@ async function main() {
   const fingerprint = await evalJs(`!!document.querySelector('.panel .fd-code[title]')`);
   log('6', `输入指纹呈现：${fingerprint}`);
 
-  log('7', '真实按钮：两项固定验证（按 verifier 定位条目）');
-  for (const vid of ['wordcount-normal', 'wordcount-empty-crash-repro']) {
-    const clicked = await evalJs(`(() => {
-      const item = [...document.querySelectorAll('.acc-item')].find(el => el.textContent.includes(${JSON.stringify(vid)}));
-      const btn = item?.querySelector('[data-testid="run-verifier"]');
-      if (btn && !btn.disabled) { btn.click(); return true; }
-      return false;
-    })()`);
-    assert(clicked, `点击运行验证：${vid}`);
-    // 已知问题（D12-5）：背靠背连续运行验证时，后一次的 UI 刷新偶发丢失（数据层无损，重跑即亮）。
-    // 首轮等 60s 未亮则重点一次（真实用户行为：无响应再点）；再等 120s 兜底 spawn 偏慢。
-    const passExpr = `[...document.querySelectorAll('.acc-item')].find(el => el.textContent.includes(${JSON.stringify(vid)}))?.dataset.accStatus === 'passed'`;
-    const firstTry = await waitFor(passExpr, 60000, `${vid} passed（首轮）`).then(
-      () => true,
-      () => false,
-    );
-    if (!firstTry) {
-      const dataLayer = await evalJs(`(async () => { const ts = (await window.forgedesk.runner.listTasks()).value; const t = ts.find(x => x.title.includes(${JSON.stringify(TASK_TITLE.slice(0, 8))})); const f = await window.forgedesk.runner.getTask(t.id); return f.value.acceptance.find(a => a.verifierId === ${JSON.stringify(vid)})?.status ?? null; })()`);
-      log('7', `${vid} 首轮 60s 未亮（runner 侧=${dataLayer}）——重点一次（已知问题 D12-5：背靠背验证 UI 刷新偶发丢失）`);
-      await evalJs(`(() => {
+  log('7', '真实按钮：两项固定验证（D-12a 复验：真·背靠背，无重试兜底）');
+  {
+    // 背靠背：两个验证按钮连续点击、中间不等待——Z1-2 根修（refreshTask 单飞合并 +
+    // updatedAt 防御）的安装态复验；修复前此形态约 2/3 概率后者不点亮。
+    for (const vid of ['wordcount-normal', 'wordcount-empty-crash-repro']) {
+      const clicked = await evalJs(`(() => {
         const item = [...document.querySelectorAll('.acc-item')].find(el => el.textContent.includes(${JSON.stringify(vid)}));
         const btn = item?.querySelector('[data-testid="run-verifier"]');
-        if (btn && !btn.disabled) btn.click();
-        return true;
+        if (btn && !btn.disabled) { btn.click(); return true; }
+        return false;
       })()`);
-      await waitFor(passExpr, 120000, `${vid} passed（重试）`);
+      assert(clicked, `点击运行验证：${vid}`);
     }
+    const passCount = `[...document.querySelectorAll('.acc-item')].filter(el => el.dataset.accStatus === 'passed').length`;
+    await waitFor(`${passCount} >= 2`, 180000, '背靠背两项验证直接点亮（无重点一次）');
   }
   await waitFor(
     `[...document.querySelectorAll('.acc-item')].filter(el => el.dataset.accStatus === 'passed').length >= 2`,
@@ -319,8 +336,13 @@ async function main() {
   const judgeText = await evalJs(`document.querySelector('[data-testid="acceptance-judge"]')?.textContent ?? ''`);
   const countText = await evalJs(`[...document.querySelectorAll('.acceptance__count')].map(e=>e.textContent).join('|')`);
   log('7', `判定徽标：${judgeText}；计数：${countText}`);
+  // 全新任务：manual 项尚未判定 → 必需项 N-1/N（可执行项全过）；复用任务 manual 已点亮 → N/N。
+  // manual 于 7b 点亮后统一应为 N/N。
   const m7 = countText.match(/必需项 (\d+)\/(\d+) 通过/);
-  assert(m7 !== null && m7[1] === m7[2], `可执行项全部通过：${countText}`);
+  assert(
+    m7 !== null && (Number(m7[1]) === Number(m7[2]) - 1 || Number(m7[1]) === Number(m7[2])),
+    `可执行项全部通过（manual 待 7b 或复用已过）：${countText}`,
+  );
 
   log('7b', '人工验收闭环：manual 项点"确认通过"（confirm 由脚本代答；真实弹窗行为由组件测试覆盖）');
   const manualBtns = await evalJs(`document.querySelectorAll('[data-testid="manual-pass-btn"]').length`);
@@ -400,6 +422,47 @@ async function main() {
     assert(providerEnvClean, 'provider.env 落盘核验：DEEPSEEK key 已移除（或文件已删）');
     const settingsRaw = JSON.parse(readFileSync(path.join(appData, 'ForgeStudio', 'settings.json'), 'utf8'));
     assert(settingsRaw.modelProvider === undefined || settingsRaw.modelProvider === null, 'settings.modelProvider 落盘核验：激活方已移除');
+  }
+
+  log('9c', '会话管理（Z1-5 安装态）：搜索 / 重命名 / 删除 / 压缩入口渲染条件');
+  {
+    // 引擎链刚创建了新会话线程 → 侧栏应有条目
+    await waitFor(`document.querySelectorAll('[data-testid="thread-item"]').length >= 1`, 15000, '会话列表有条目');
+    const before = await evalJs(`document.querySelectorAll('[data-testid="thread-item"]').length`);
+    // 搜索过滤（键盘级输入驱动 React 受控组件）：当前会话标题片段 → 恰 1 条；不存在词 → 空态；清空恢复
+    // 注：uuid v7 标题前缀同分钟高度相似，取 16 字符保证唯一
+    const firstTitle = await evalJs(`document.querySelector('[data-testid="thread-item"] .thread-item__title')?.textContent?.trim().slice(0, 16) ?? ''`);
+    assert(firstTitle.length > 0, `取到会话标题片段（${firstTitle}）`);
+    await typeInto('[data-testid="thread-search"]', firstTitle);
+    await waitFor(`document.querySelectorAll('[data-testid="thread-item"]').length === 1`, 10000, '搜索过滤到 1 条');
+    await typeInto('[data-testid="thread-search"]', '不存在的关键词xyz');
+    await waitFor(`!!document.querySelector('[data-testid="thread-search-empty"]')`, 10000, '搜索空态呈现');
+    await typeInto('[data-testid="thread-search"]', '');
+    await waitFor(`document.querySelectorAll('[data-testid="thread-item"]').length === ${before}`, 10000, '清空搜索恢复全部');
+    // 重命名：行内输入 → Enter → 标题更新（title meta 持久化 + refreshThreads）
+    await evalJs(`document.querySelector('[data-testid="thread-rename-btn"]')?.click()`);
+    await waitFor(`!!document.querySelector('[data-testid="thread-rename-input"]')`, 5000, '重命名输入框出现');
+    const newName = `走查重命名 ${Date.now() % 10000}`;
+    await typeInto('[data-testid="thread-rename-input"]', newName);
+    await pressEnter();
+    await waitFor(`[...document.querySelectorAll('[data-testid="thread-item"]')].some(el => el.textContent.includes(${JSON.stringify(newName)}))`, 20000, '重命名后列表标题更新');
+    // 删除：两步确认 → 以桥数据为真值断言（UI 计数与桥一致；规避 step9 引擎线程刷新晚到的基线竞态）
+    const bridgeBefore = await evalJs(`(async()=>{const t=await window.forgedesk.session.listThreads();return (t.value??[]).length})()`);
+    await evalJs(`document.querySelector('[data-testid="thread-delete-btn"]')?.click()`);
+    await waitFor(`!!document.querySelector('[data-testid="thread-delete-confirm"]')`, 5000, '删除确认按钮出现');
+    await evalJs(`document.querySelector('[data-testid="thread-delete-confirm"]')?.click()`);
+    await waitFor(
+      `(async () => {
+        const t = await window.forgedesk.session.listThreads();
+        const n = (t.value ?? []).length;
+        const ui = document.querySelectorAll('[data-testid="thread-item"]').length;
+        return n === ${bridgeBefore} - 1 && ui === n;
+      })()`,
+      20000,
+      '删除后会话数减一（桥为真值，UI 同步）',
+    );
+    // 压缩入口渲染条件：无消息的会话不渲染（有消息+live 会话才出现——渲染条件正确性）
+    assert(await evalJs(`!document.querySelector('[data-testid="compact-thread-btn"]')`), '压缩上下文按钮按渲染条件隐藏（无消息会话）');
   }
 
   log('10', 'Browser.close 优雅退出');
