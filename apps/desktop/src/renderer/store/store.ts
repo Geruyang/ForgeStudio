@@ -184,6 +184,12 @@ export interface AppActions {
   selectThread(threadId: string): Promise<void>;
   resumeThread(threadId: string): Promise<void>;
   startNewConversation(): Promise<void>;
+  /** 会话重命名（Z1-5）：本地持久化 + 引擎在线同步；完成后刷新列表 */
+  renameThread(threadId: string, name: string): Promise<void>;
+  /** 会话删除（Z1-5）：删除活动会话时同时清空当前会话视图 */
+  deleteThread(threadId: string): Promise<void>;
+  /** 上下文压缩（Z1-5）：仅当前会话 + 引擎就绪；完成以 session/compacted 事件为准 */
+  compactThread(): Promise<void>;
   setDraft(text: string): void;
   sendDraft(): Promise<boolean>;
   steerDraft(): Promise<boolean>;
@@ -753,6 +759,50 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
         // 会话启动后引擎就绪：模型列表与认证状态随之可拉取（设置页下拉自动可用）
         void get().refreshModels();
         void get().refreshAuth();
+      },
+
+      // ---- 会话管理（Z1-5）----
+      async renameThread(threadId, name) {
+        const r = await bridge.session.renameThread(threadId, name);
+        if (!r.ok) {
+          failureToast(r.failure);
+          return;
+        }
+        void get().refreshThreads();
+      },
+      async deleteThread(threadId) {
+        const r = await bridge.session.deleteThread(threadId);
+        if (!r.ok) {
+          failureToast(r.failure);
+          return;
+        }
+        // 删除的是当前查看/进行中的会话：清空会话视图，不残留已删内容
+        if (get().activeThreadId === threadId || get().liveThreadId === threadId) {
+          set({
+            activeThreadId: null,
+            liveThreadId: null,
+            conversation: emptyConversation(),
+            conversationMode: 'empty',
+            restoredComplete: true,
+            turnRunning: false,
+            stopPhase: 'idle',
+            tokenUsage: null,
+          });
+        }
+        void get().refreshThreads();
+      },
+      async compactThread() {
+        const threadId = get().liveThreadId;
+        if (!threadId) {
+          failureToast({ kind: 'connection_failure', message: '无进行中的会话，无法压缩上下文', occurredAt: nowIso() });
+          return;
+        }
+        if (get().turnRunning) {
+          failureToast({ kind: 'permission_denied', message: '回合进行中，请等待结束后再压缩上下文', occurredAt: nowIso() });
+          return;
+        }
+        const r = await bridge.session.compactThread(threadId);
+        if (!r.ok) failureToast(r.failure); // 完成（session/compacted）走事件流提示
       },
 
       // ---- 输入 / 回合 ----
@@ -1342,6 +1392,9 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
         if (event.type === 'turn/started') {
           patch.turnRunning = true;
           patch.stopPhase = 'idle';
+        }
+        if (event.type === 'session/compacted') {
+          term.push({ at: nowIso(), source: '会话', text: '上下文压缩完成（历史消息已摘要化）', isError: false });
         }
         if (event.type === 'turn/completed') {
           patch.turnRunning = false;

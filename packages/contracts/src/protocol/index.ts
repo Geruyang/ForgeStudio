@@ -53,6 +53,12 @@ export const CLIENT_METHODS = {
   initialized: 'initialized',
   threadStart: 'thread/start',
   threadResume: 'thread/resume',
+  /** 会话重命名（Z1-5；ThreadSetNameParams: { threadId, name }） */
+  threadNameSet: 'thread/name/set',
+  /** 会话删除（Z1-5；ThreadDeleteParams: { threadId }） */
+  threadDelete: 'thread/delete',
+  /** 上下文压缩（Z1-5；ThreadCompactStartParams: { threadId }，完成以 thread/compacted 通知为准） */
+  threadCompactStart: 'thread/compact/start',
   turnStart: 'turn/start',
   turnSteer: 'turn/steer',
   turnInterrupt: 'turn/interrupt',

@@ -42,6 +42,9 @@ contextBridge.exposeInMainWorld('forgedesk', {
     listThreads: () => invoke(IPC.session.listThreads),
     loadThread: (threadId: string) => invoke(IPC.session.loadThread, threadId),
     loadPatch: (patchRef: string) => invoke(IPC.session.loadPatch, patchRef),
+    renameThread: (threadId: string, name: string) => invoke(IPC.session.renameThread, threadId, name),
+    deleteThread: (threadId: string) => invoke(IPC.session.deleteThread, threadId),
+    compactThread: (threadId: string) => invoke(IPC.session.compactThread, threadId),
   },
   runner: {
     listTasks: () => invoke(IPC.runner.listTasks),

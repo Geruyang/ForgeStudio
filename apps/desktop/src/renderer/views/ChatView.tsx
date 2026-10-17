@@ -23,6 +23,8 @@ export function ChatView() {
   const startNewConversation = useAppStore((s) => s.startNewConversation);
   const setTaskSetupOpen = useAppStore((s) => s.setTaskSetupOpen);
   const tokenUsage = useAppStore((s) => s.tokenUsage);
+  const compactThread = useAppStore((s) => s.compactThread);
+  const turnRunning = useAppStore((s) => s.turnRunning);
   const streamRef = useRef<HTMLDivElement | null>(null);
   const msgCount = conversation.messages.length;
   const lastLen = conversation.messages[msgCount - 1]?.text.length ?? 0;
@@ -45,6 +47,18 @@ export function ChatView() {
       )}
       <SteerNoticeBanner />
       {tokenUsage && <TokenUsageBar usage={tokenUsage} />}
+      {liveThreadId && conversation.messages.length > 0 && !turnRunning && (
+        <div style={{ margin: '4px 22px 0', textAlign: 'right' }}>
+          <button
+            type="button"
+            className="fd-btn fd-btn--ghost fd-btn--small"
+            onClick={() => void compactThread()}
+            data-testid="compact-thread-btn"
+          >
+            压缩上下文
+          </button>
+        </div>
+      )}
       <div className="chat-stream" ref={streamRef}>
         {firstRun ? (
           <div className="chat-empty">

@@ -135,6 +135,9 @@ export function applyEngineEventToConversation(
       return state;
     case 'session/started':
       return state;
+    case 'session/compacted':
+      // 压缩完成提示走 store 层 terminal；不改变会话消息流（历史已由引擎摘要化，重载后为压缩视图）
+      return state;
     case 'usage/updated':
       // token 用量由 store 层 AppState 持有（非会话消息流），此处直接跳过不进样本
       return state;

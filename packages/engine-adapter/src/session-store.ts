@@ -8,7 +8,7 @@
  * - 重连/历史缺口（未闭合的 turn、损坏行、seq 回退、写入失败）标 complete=false，不伪造缺失消息；
  * - loadThread() 重建 StoredMessage 列表：delta 合并成最终文本、工具调用归组、patchRefs 收集。
  */
-import { appendFile, mkdir, readFile, readdir } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fail, ok } from '@forgedesk/contracts/common';
 import type { OpResult, Timestamp } from '@forgedesk/contracts/common';
@@ -35,7 +35,10 @@ export interface ThreadLoadResult {
 interface SessionMetaRecord {
   kind: 'meta';
   threadId: string;
-  projectRoot: string;
+  /** 会话起始 meta 记录项目根；重命名 meta 不携带（可选） */
+  projectRoot?: string;
+  /** 用户自定义标题（Z1-5 重命名持久化；缺省回落首条用户消息摘要） */
+  title?: string;
   at: Timestamp;
 }
 
@@ -90,6 +93,32 @@ export class EngineSessionStore {
       at: new Date().toISOString(),
     };
     return this.#appendRecord(threadId, record);
+  }
+
+  /** 重命名（Z1-5）：追加 title meta 记录；历史会话与离线状态同样生效 */
+  async renameThread(threadId: string, title: string): Promise<OpResult<void>> {
+    const name = title.trim();
+    if (name.length === 0 || name.length > 120) {
+      throw new Error('会话名须为 1-120 个字符');
+    }
+    const record: SessionMetaRecord = {
+      kind: 'meta',
+      threadId,
+      title: name,
+      at: new Date().toISOString(),
+    };
+    return this.#appendRecord(threadId, record);
+  }
+
+  /** 删除（Z1-5）：移除会话文件与不完整标记；不存在视为成功（幂等） */
+  async deleteThread(threadId: string): Promise<OpResult<void>> {
+    this.#unhealthy.delete(threadId);
+    try {
+      await rm(sessionFilePath(this.#storageDir, threadId), { force: true });
+      return ok(undefined);
+    } catch (e) {
+      return fail('internal_error', `删除会话文件失败：${String(e)}`);
+    }
   }
 
   /** 按接收顺序追加事件；无 threadId 的事件（如全局 engine/status）不入 thread 文件 */
@@ -225,7 +254,7 @@ export class EngineSessionStore {
         (parsed as Record<string, unknown>)['kind'] === 'meta'
       ) {
         const rec = parsed as unknown as SessionMetaRecord;
-        if (typeof rec.threadId === 'string' && typeof rec.projectRoot === 'string') {
+        if (typeof rec.threadId === 'string') {
           metas.push(rec);
         }
         continue;
@@ -256,11 +285,14 @@ export class EngineSessionStore {
     // 未闭合的 turn = 历史缺口（重连/进程中断），complete=false
     const openTurns = this.#countOpenTurns(events);
     const complete = corruptLines === 0 && seqStrictlyIncreasing && openTurns === 0;
-    const title = firstUserText ? this.#ellipsis(firstUserText, 60) : threadId;
+    // projectRoot：最后一个携带非空值的 meta；title：最后一次用户重命名，缺省回落首条用户消息
+    const projectRootMeta = [...metas].reverse().find((m) => typeof m.projectRoot === 'string' && m.projectRoot !== '');
+    const titleMeta = [...metas].reverse().find((m) => typeof m.title === 'string' && m.title !== '');
+    const title = titleMeta?.title ?? (firstUserText ? this.#ellipsis(firstUserText, 60) : threadId);
 
     return {
       threadId,
-      projectRoot: metas.at(-1)?.projectRoot ?? '',
+      projectRoot: projectRootMeta?.projectRoot ?? '',
       title,
       lastActivityAt,
       messageCount,

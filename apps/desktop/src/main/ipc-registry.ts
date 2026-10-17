@@ -99,6 +99,33 @@ export function registerIpc(ctx: IpcContext): void {
   register(IPC.session.listThreads, () => ctx.engine.sessionStore.listThreads());
   register(IPC.session.loadThread, (e, threadId: string) => ctx.engine.sessionStore.loadThread(threadId));
   register(IPC.session.loadPatch, (e, patchRef: string) => ctx.engine.loadPatch(patchRef));
+  // Z1-5 会话管理：本地持久化为准，引擎在线且为当前线程时 best-effort 同步（失败不阻塞持久化结果）
+  register(IPC.session.renameThread, async (e, threadId: string, name: string) => {
+    const r = await ctx.engine.sessionStore.renameThread(threadId, name);
+    if (r.ok) {
+      try {
+        await ctx.engine.adapter?.renameThread(threadId, name.trim());
+      } catch {
+        /* 引擎侧同步失败不影响本地持久化 */
+      }
+    }
+    return r;
+  });
+  register(IPC.session.deleteThread, async (e, threadId: string) => {
+    const r = await ctx.engine.sessionStore.deleteThread(threadId);
+    if (r.ok) {
+      try {
+        await ctx.engine.adapter?.deleteThread(threadId);
+      } catch {
+        /* 引擎侧同步失败不影响本地清理 */
+      }
+    }
+    return r;
+  });
+  register(IPC.session.compactThread, (e, threadId: string) => {
+    if (!ctx.engine.adapter) throw new Error('上下文压缩需要引擎已启动');
+    return ctx.engine.adapter.compactThread(threadId);
+  });
 
   // ---- runner（HTTP 代理到唯一权威实例） ----
   register(IPC.runner.listTasks, () => ctx.runner.request('/api/tasks'));

@@ -81,6 +81,21 @@ export interface EngineAdapter {
   listModels(): Promise<EngineModelInfo[]>;
   /** 认证状态 */
   authStatus(): Promise<AuthStatusInfo>;
+  /**
+   * 会话重命名（引擎侧同步，best-effort；Z1-5）。仅当引擎就绪且 threadId 为当前线程时下发
+   * thread/name/set，否则静默跳过——持久化由 SessionStore.renameThread 负责（对历史会话同样有效）。
+   */
+  renameThread(threadId: string, name: string): Promise<void>;
+  /**
+   * 会话删除（引擎侧同步，best-effort；Z1-5）。仅当前线程时下发 thread/delete；
+   * 本地会话文件清理由 SessionStore.deleteThread 负责。
+   */
+  deleteThread(threadId: string): Promise<void>;
+  /**
+   * 上下文压缩（Z1-5）：下发 thread/compact/start；完成以 session/compacted 事件
+   * （thread/compacted 通知投影）为准，本方法返回仅代表请求受理。
+   */
+  compactThread(threadId: string): Promise<void>;
   /** 结束进程；先取消活动回合 */
   dispose(): Promise<void>;
   /** 事件订阅 */
@@ -98,6 +113,7 @@ export interface EngineAdapter {
 export const ENGINE_EVENT_TYPES = [
   'engine/status',
   'session/started',
+  'session/compacted',
   'turn/started',
   'turn/completed',
   'usage/updated',
@@ -141,6 +157,7 @@ export interface TokenUsageSummary {
 export type EngineEvent =
   | (EngineEventBase & { type: 'engine/status'; status: EngineStatus; detail?: string })
   | (EngineEventBase & { type: 'session/started'; threadId: string })
+  | (EngineEventBase & { type: 'session/compacted'; threadId: string })
   | (EngineEventBase & { type: 'turn/started'; turnId: string; inputPreview: string })
   | (EngineEventBase & {
       type: 'turn/completed';

@@ -179,3 +179,52 @@ describe('SessionStore 写入失败（不崩溃）', () => {
     rmSync(root, { recursive: true, force: true });
   });
 });
+
+describe('SessionStore 会话管理（Z1-5：重命名/删除持久化）', () => {
+  it('renameThread：title meta 落盘，listThreads 标题覆盖且 projectRoot 保留、消息不受影响', async () => {
+    const THREAD_ID = 'th-store-rn';
+    const h = track(createStoreHarness({ scenario: 'basic' }, THREAD_ID));
+    h.store.attach(h.adapter, { projectRoot: h.root });
+    await h.adapter.start({ projectRoot: h.root });
+    await h.adapter.send('原始首条用户消息');
+    await waitFileContains(h.sessionFile, 'turn/completed');
+    await new Promise((r) => setTimeout(r, 120));
+
+    const r = await h.store.renameThread(THREAD_ID, '重命名的调试会话');
+    expect(r.ok).toBe(true);
+
+    const summary = (await h.store.listThreads()).find((t) => t.threadId === THREAD_ID);
+    expect(summary?.title).toBe('重命名的调试会话');
+    expect(summary?.projectRoot).toBe(h.root); // 重命名 meta 不覆盖项目根
+    const loaded = await h.store.loadThread(THREAD_ID);
+    expect(loaded.messages.find((m) => m.role === 'user')?.text).toBe('原始首条用户消息');
+  });
+
+  it('renameThread：空名/超长名拒绝（throw，不落盘）', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'forgedesk-store-rn2-'));
+    const store = new EngineSessionStore({ storageDir: join(root, 'storage') });
+    await expect(store.renameThread('th-x', '   ')).rejects.toThrow();
+    await expect(store.renameThread('th-x', 'a'.repeat(121))).rejects.toThrow();
+    await expect(store.renameThread('th-x', '合法名')).resolves.toMatchObject({ ok: true });
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('deleteThread：会话文件移除，listThreads 不再出现；重复删除幂等', async () => {
+    const THREAD_ID = 'th-store-del';
+    const h = track(createStoreHarness({ scenario: 'basic' }, THREAD_ID));
+    h.store.attach(h.adapter, { projectRoot: h.root });
+    await h.adapter.start({ projectRoot: h.root });
+    await h.adapter.send('将被删除的会话');
+    await waitFileContains(h.sessionFile, 'turn/completed');
+    await new Promise((r) => setTimeout(r, 120));
+    expect(existsSync(h.sessionFile)).toBe(true);
+
+    const r = await h.store.deleteThread(THREAD_ID);
+    expect(r.ok).toBe(true);
+    expect(existsSync(h.sessionFile)).toBe(false);
+    expect((await h.store.listThreads()).find((t) => t.threadId === THREAD_ID)).toBeUndefined();
+
+    const again = await h.store.deleteThread(THREAD_ID);
+    expect(again.ok).toBe(true); // 幂等
+  });
+});

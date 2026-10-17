@@ -47,6 +47,12 @@ export const IPC = {
     loadThread: 'session:load-thread',
     /** 补丁全文读取（patchRef → unified diff 文本；主进程从引擎存储目录读取） */
     loadPatch: 'session:load-patch',
+    /** 会话重命名（Z1-5）：本地持久化 + 引擎在线时同步 thread/name/set */
+    renameThread: 'session:rename-thread',
+    /** 会话删除（Z1-5）：本地会话文件清理 + 当前线程时同步 thread/delete */
+    deleteThread: 'session:delete-thread',
+    /** 上下文压缩（Z1-5）：thread/compact/start，完成以 session/compacted 事件为准 */
+    compactThread: 'session:compact-thread',
   },
   runner: {
     listTasks: 'runner:list-tasks',
@@ -245,6 +251,12 @@ export interface ForgeDeskBridge {
     loadThread(threadId: string): Promise<OpResult<{ messages: StoredMessage[]; complete: boolean }>>;
     /** 补丁全文（差异面板渲染用）；仅允许 patches/ 目录内的引用，防路径穿越 */
     loadPatch(patchRef: string): Promise<OpResult<{ text: string }>>;
+    /** 会话重命名（Z1-5）：本地持久化 + 引擎在线时同步 */
+    renameThread(threadId: string, name: string): Promise<OpResult<void>>;
+    /** 会话删除（Z1-5）：本地文件清理 + 当前线程时引擎同步 */
+    deleteThread(threadId: string): Promise<OpResult<void>>;
+    /** 上下文压缩（Z1-5）：需引擎就绪；完成以 session/compacted 事件为准 */
+    compactThread(threadId: string): Promise<OpResult<void>>;
   };
   runner: {
     listTasks(): Promise<OpResult<TaskOverview[]>>;

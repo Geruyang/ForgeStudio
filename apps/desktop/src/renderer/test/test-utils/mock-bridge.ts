@@ -76,6 +76,9 @@ export function createMockBridge(overrides: BridgeOverrides = {}): MockBridge {
     listThreads: async () => unconfigured(),
     loadThread: async () => unconfigured(),
     loadPatch: async () => unconfigured(),
+    renameThread: async () => unconfigured(),
+    deleteThread: async () => unconfigured(),
+    compactThread: async () => unconfigured(),
   };
 
   const runnerDefaults: ForgeDeskBridge['runner'] = {

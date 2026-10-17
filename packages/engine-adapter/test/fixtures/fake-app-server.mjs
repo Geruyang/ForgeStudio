@@ -551,6 +551,23 @@ function dispatch(msg) {
       case 'turn/interrupt':
         handleInterrupt(msg);
         return;
+      case 'thread/name/set': {
+        const name = String(msg.params?.name ?? '');
+        sendResponse(msg.id, {});
+        notify('thread/name/updated', { threadId: msg.params?.threadId ?? threadId, name });
+        return;
+      }
+      case 'thread/delete':
+        sendResponse(msg.id, {});
+        notify('thread/deleted', { threadId: msg.params?.threadId ?? threadId });
+        return;
+      case 'thread/compact/start':
+        sendResponse(msg.id, {});
+        notify('thread/compacted', {
+          threadId: msg.params?.threadId ?? threadId,
+          turnId: msg.params?.turnId ?? turnId,
+        });
+        return;
       case 'model/list':
         sendResponse(msg.id, { data: C.models, nextCursor: null });
         return;

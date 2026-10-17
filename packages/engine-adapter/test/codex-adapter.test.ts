@@ -26,7 +26,7 @@ const fixtureServer = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures
 
 interface RxEntry {
   at: number;
-  msg: { id?: number | string; method?: string; result?: unknown; error?: unknown };
+  msg: { id?: number | string; method?: string; params?: unknown; result?: unknown; error?: unknown };
 }
 
 interface Harness {
@@ -366,6 +366,51 @@ describe('token 用量投影', () => {
     await h.adapter.send('请运行测试');
     await h.wait((e) => e.type === 'turn/completed');
     expect(of(h.events, 'usage/updated')).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 会话管理（Z1-5：重命名/删除/压缩）
+// ---------------------------------------------------------------------------
+
+describe('会话管理（rename/delete/compact）', () => {
+  it('renameThread（当前线程）：下发 thread/name/set 且参数正确', async () => {
+    const h = track(createHarness({ scenario: 'basic', authMode: 'apikey' }));
+    const { threadId } = await h.adapter.start({ projectRoot: h.root });
+    await h.adapter.renameThread(threadId, '我的调试会话');
+    const req = h.rx().find((r) => r.msg.method === 'thread/name/set');
+    expect(req).toBeDefined();
+    expect(req!.msg.params).toMatchObject({ threadId, name: '我的调试会话' });
+  });
+
+  it('renameThread（非当前线程/历史会话）：静默跳过，不发请求', async () => {
+    const h = track(createHarness({ scenario: 'basic', authMode: 'apikey' }));
+    await h.adapter.start({ projectRoot: h.root });
+    await h.adapter.renameThread('th-not-live-999', '不存在的会话');
+    expect(h.rx().find((r) => r.msg.method === 'thread/name/set')).toBeUndefined();
+  });
+
+  it('deleteThread（当前线程）：下发 thread/delete；引擎侧通知被消化（未知样本不计入）', async () => {
+    const h = track(createHarness({ scenario: 'basic', authMode: 'apikey' }));
+    const { threadId } = await h.adapter.start({ projectRoot: h.root });
+    await h.adapter.deleteThread(threadId);
+    expect(h.rx().find((r) => r.msg.method === 'thread/delete')).toBeDefined();
+  });
+
+  it('compactThread（当前线程）：请求受理 + thread/compacted → session/compacted 事件', async () => {
+    const h = track(createHarness({ scenario: 'basic', authMode: 'apikey' }));
+    const { threadId } = await h.adapter.start({ projectRoot: h.root });
+    await h.adapter.compactThread(threadId);
+    const compacted = await h.wait((e) => e.type === 'session/compacted');
+    if (compacted.type !== 'session/compacted') throw new Error('unreachable');
+    expect(compacted.threadId).toBe(threadId);
+    expect(h.rx().find((r) => r.msg.method === 'thread/compact/start')).toBeDefined();
+  });
+
+  it('compactThread（非当前线程）：明确报错（压缩只对进行中的会话有意义）', async () => {
+    const h = track(createHarness({ scenario: 'basic', authMode: 'apikey' }));
+    await h.adapter.start({ projectRoot: h.root });
+    await expect(h.adapter.compactThread('th-not-live-999')).rejects.toThrow();
   });
 });
 

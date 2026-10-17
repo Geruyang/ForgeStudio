@@ -357,9 +357,11 @@ interface PendingApproval {
 }
 
 /** 已知但首发不消费、静默丢弃的通知（不占用未知事件样本配额，避免高频状态类通知刷屏）。
- * 注意：thread/tokenUsage/updated 已投影为 usage/updated 事件（D19），不在此列。 */
+ * 注意：thread/tokenUsage/updated 已投影为 usage/updated（D19）、
+ * thread/compacted 已投影为 session/compacted（Z1-5），均不在此列。 */
 const IGNORED_NOTIFICATIONS = new Set([
   'thread/name/updated',
+  'thread/deleted',
   'thread/prediction/updated',
   'thread/queue/changed',
   'thread/settings/updated',
@@ -368,7 +370,6 @@ const IGNORED_NOTIFICATIONS = new Set([
   'thread/goal/cleared',
   'thread/environment/connected',
   'thread/environment/disconnected',
-  'thread/compacted',
   'fs/changed',
   'process/exited',
   'process/outputDelta',
@@ -682,6 +683,30 @@ export class CodexEngineAdapter implements EngineAdapter {
 
   async authStatus(): Promise<AuthStatusInfo> {
     return this.#fetchAuthStatus();
+  }
+
+  // ---- 会话管理（Z1-5：重命名/删除/压缩）----
+
+  /** 引擎侧同步仅对"当前线程 + 连接存活"有效；历史会话由 SessionStore 持久层负责 */
+  #isLiveThread(threadId: string): boolean {
+    return this.#connected && this.#threadId === threadId;
+  }
+
+  async renameThread(threadId: string, name: string): Promise<void> {
+    if (!this.#isLiveThread(threadId)) return;
+    await this.#sendRequest(CLIENT_METHODS.threadNameSet, { threadId, name });
+  }
+
+  async deleteThread(threadId: string): Promise<void> {
+    if (!this.#isLiveThread(threadId)) return;
+    await this.#sendRequest(CLIENT_METHODS.threadDelete, { threadId });
+  }
+
+  async compactThread(threadId: string): Promise<void> {
+    if (!this.#isLiveThread(threadId)) {
+      throw new EngineConnectionError('上下文压缩需要引擎就绪且目标为当前会话');
+    }
+    await this.#sendRequest(CLIENT_METHODS.threadCompactStart, { threadId });
   }
 
   /** getAuthStatus 强制 includeToken=false：不把令牌带进内存/日志/事件 */
@@ -1270,6 +1295,18 @@ export class CodexEngineAdapter implements EngineAdapter {
         const thread = isRecord(p['thread']) ? p['thread'] : undefined;
         const threadId = thread && typeof thread['id'] === 'string' ? (thread['id'] as string) : undefined;
         if (threadId && threadId === this.#threadId) this.#emitSessionStarted(threadId);
+        return;
+      }
+      case 'thread/compacted': {
+        // v2/ContextCompactedNotification { threadId, turnId }（上游标注 deprecated，语义仍为压缩完成）
+        const compactedThread = this.#str(p['threadId']) ?? this.#threadId;
+        if (compactedThread) {
+          this.#emitEvent({
+            type: 'session/compacted',
+            threadId: compactedThread,
+            turnId: this.#str(p['turnId']) ?? undefined,
+          });
+        }
         return;
       }
       case 'thread/tokenUsage/updated': {
