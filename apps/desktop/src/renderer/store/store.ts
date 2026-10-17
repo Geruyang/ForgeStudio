@@ -356,6 +356,13 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
         set((s) => ({ busyTools: s.busyTools.filter((k) => k !== key) }));
       }
     };
+    /**
+     * refreshTask 单飞状态（D-12a 根修）：SSE 事件风暴（acceptance/evidence/operation 连发）会
+     * 触发多个并发 getTask；HTTP 响应乱序回达时旧快照会覆盖新状态（数据层正确、UI 停留在旧值，
+     * 重跑一次即恢复——与 D-12a 症状一致）。修复：同任务同时最多一个在途 GET，飞行中到达的
+     * 请求合并为一次收尾拉取；updatedAt 单调防御跨链（listTasks 全量替换）乱序。
+     */
+    const taskRefresh = new Map<string, { inFlight: boolean; dirty: boolean; lastAppliedUpdatedAt: string }>();
 
     return {
       // ---- 初始状态 ----
@@ -486,12 +493,29 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
         }));
       },
       async refreshTask(taskId) {
-        const r = await bridge.runner.getTask(taskId);
-        if (!r.ok) {
-          failureToast(r.failure);
+        const st = taskRefresh.get(taskId) ?? { inFlight: false, dirty: false, lastAppliedUpdatedAt: '' };
+        taskRefresh.set(taskId, st);
+        if (st.inFlight) {
+          st.dirty = true;
           return;
         }
-        set((s) => ({ tasks: upsertTask(s.tasks, r.value) }));
+        st.inFlight = true;
+        try {
+          do {
+            st.dirty = false;
+            const r = await bridge.runner.getTask(taskId);
+            if (r.ok) {
+              if (r.value.updatedAt >= st.lastAppliedUpdatedAt) {
+                st.lastAppliedUpdatedAt = r.value.updatedAt;
+                set((s) => ({ tasks: upsertTask(s.tasks, r.value) }));
+              }
+            } else {
+              failureToast(r.failure);
+            }
+          } while (st.dirty);
+        } finally {
+          st.inFlight = false;
+        }
       },
       async refreshDevices() {
         const r = await bridge.runner.listDevices();
