@@ -55,7 +55,15 @@ import {
 } from '../snapshot/source-snapshot.ts';
 import { walkFiles, sha256File, sha256Of, canonicalJson, toPosix, matchAny } from '../snapshot/digests.ts';
 import { probeToolVersions, isGitAvailable } from '../snapshot/tool-versions.ts';
-import { runCommand } from './command.ts';
+import { runCommand, type CommandResult } from './command.ts';
+import {
+  defaultSshTransport,
+  buildRemoteCmdline,
+  remoteTaskDir,
+  type SshSession,
+  type SshTransport,
+} from './ssh-transport.ts';
+import type { SshTarget, ProfileCommand } from '../../../contracts/src/profile.ts';
 import { assertOperationTransition, isTerminalOperationStatus } from './state-machine.ts';
 import { buildArgsDigest } from './keys.ts';
 import { buildExportBundle, type ExportManifest } from './exporter.ts';
@@ -145,6 +153,11 @@ export interface OpsEngineOptions {
   profiles: ProfileLoader;
   deviceAdapter?: DeviceAdapter | null;
   runnerVersion?: string;
+  /**
+   * SSH 远程执行传输（Z3-FZ3B）：profile 命令带 ssh 目标时使用；
+   * 缺省为真实 ssh2 传输（密码经目标 passwordEnv 指定的环境变量注入）；测试注入 fake（标注模拟）。
+   */
+  sshTransport?: SshTransport;
 }
 
 export class OpsEngine {
@@ -153,6 +166,7 @@ export class OpsEngine {
   private readonly storage: Storage;
   private readonly profiles: ProfileLoader;
   private readonly deviceAdapter: DeviceAdapter | null;
+  private readonly sshTransport: SshTransport;
   private readonly startedAtMs = Date.now();
   private readonly subscribers = new Set<(e: RunnerEvent) => void>();
   private readonly pendingAuths = new Map<string, PendingEntry>();
@@ -166,6 +180,7 @@ export class OpsEngine {
     this.storage = opts.storage;
     this.profiles = opts.profiles;
     this.deviceAdapter = opts.deviceAdapter ?? null;
+    this.sshTransport = opts.sshTransport ?? defaultSshTransport;
     this.runnerVersion = opts.runnerVersion ?? '0.1.0';
   }
 
@@ -947,6 +962,57 @@ export class OpsEngine {
   }
 
   // ---------------------------------------------------------------------------
+  // SSH 远程执行（Z3-FZ3B：Linux SoC 板卡上的构建/验收）
+  // ---------------------------------------------------------------------------
+
+  /** 远程执行准备：无 ssh 目标返回 null；有则连接 + 上传任务输入清单到内容寻址目录 */
+  async #sshSetup(
+    cmd: ProfileCommand,
+    task: { id: string; projectRoot: string },
+    inputManifest: Array<{ path: string }>,
+    inputDigest: string,
+    logRefHint: string,
+  ): Promise<{ session: SshSession; dir: string; target: SshTarget } | null> {
+    const target = cmd.ssh;
+    if (!target) return null;
+    if (inputManifest.length > 2000) {
+      throw new ToolExecError(
+        'environment_missing',
+        'environment_missing',
+        `远程工程输入文件过多（${inputManifest.length} > 2000）：板上工程应保持精简输入集`,
+        logRefHint,
+      );
+    }
+    const session = await this.sshTransport(target);
+    const dir = remoteTaskDir(target, task.id, inputDigest);
+    const files: Array<{ rel: string; content: Buffer }> = [];
+    for (const m of inputManifest) {
+      const rel = toPosix(m.path);
+      files.push({ rel, content: await fsp.readFile(path.join(task.projectRoot, rel)) });
+    }
+    await session.uploadInputs(dir, files);
+    return { session, dir, target };
+  }
+
+  /** 远程执行命令（cwd 相对任务目录）；返回结构与本地 runCommand 对齐 */
+  async #sshExec(
+    remote: { session: SshSession; dir: string },
+    cmd: ProfileCommand,
+    ctx: ExecContext,
+    outputLimitBytes: number,
+  ): Promise<CommandResult> {
+    const cwd = cmd.cwd ? `${remote.dir}/${cmd.cwd}` : remote.dir;
+    return await remote.session.exec({
+      cmdline: buildRemoteCmdline(cmd.exe, cmd.args),
+      cwd,
+      env: cmd.env,
+      timeoutMs: cmd.timeoutMs,
+      outputLimitBytes,
+      signal: ctx.signal,
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // 工具实现：build
   // ---------------------------------------------------------------------------
 
@@ -976,19 +1042,35 @@ export class OpsEngine {
     const buildId = randomUUID();
     const cmd = loaded.profile.build;
     const cwd = cmd.cwd ? path.resolve(task.projectRoot, cmd.cwd) : task.projectRoot;
-    const r = await runCommand({
-      exe: cmd.exe,
-      args: cmd.args,
-      cwd,
-      env: cmd.env,
-      timeoutMs: cmd.timeoutMs,
-      outputLimitBytes: BUILD_OUTPUT_LIMIT,
-      signal: ctx.signal,
-    });
+    // SSH 目标（Z3-FZ3B）：上传输入 → 板上构建 → 产物取回本地证据管线
+    const remote = await this.#sshSetup(cmd, task, before.inputManifest, before.inputDigest, '');
+    const artifactSearchDir = remote ? path.join(ctx.logDir, 'remote-artifacts') : task.projectRoot;
+    let r!: CommandResult;
+    let artifactNames: string[] = [];
+    try {
+      if (remote) {
+        r = await this.#sshExec(remote, cmd, ctx, BUILD_OUTPUT_LIMIT);
+        if (r.exitCode === 0) {
+          artifactNames = await remote.session.downloadGlob(remote.dir, loaded.profile.artifactsGlob, artifactSearchDir);
+        }
+      } else {
+        r = await runCommand({
+          exe: cmd.exe,
+          args: cmd.args,
+          cwd,
+          env: cmd.env,
+          timeoutMs: cmd.timeoutMs,
+          outputLimitBytes: BUILD_OUTPUT_LIMIT,
+          signal: ctx.signal,
+        });
+      }
+    } finally {
+      if (remote) await remote.session.close().catch(() => undefined);
+    }
     const logContent = [
       `# build ${buildId}`,
       `exe: ${cmd.exe} ${cmd.args.join(' ')}`,
-      `cwd: ${cwd}`,
+      `cwd: ${remote ? `${remote.dir}${cmd.cwd ? '/' + cmd.cwd : ''}（板上 ${remote.target.host}）` : cwd}`,
       `exitCode: ${r.exitCode}`,
       `durationMs: ${r.durationMs}`,
       '--- stdout ---',
@@ -1009,14 +1091,19 @@ export class OpsEngine {
       throw new ToolExecError('internal_error', 'build_failure', `构建失败：退出码 ${r.exitCode}`, logRef);
     }
 
-    // 采集产物（artifactsGlob，确定性取排序后首个命中）
-    const files = await walkFiles(task.projectRoot, { skipDirNames: ['node_modules', '.git'], maxFiles: 60_000 });
-    const matches = files.filter((f) => matchAny(f, loaded.profile.artifactsGlob)).sort();
+    // 采集产物（artifactsGlob，确定性取排序后首个命中；远程构建取回名单，本地构建走目录扫描）
+    let matches: string[];
+    if (remote) {
+      matches = [...artifactNames].sort();
+    } else {
+      const files = await walkFiles(task.projectRoot, { skipDirNames: ['node_modules', '.git'], maxFiles: 60_000 });
+      matches = files.filter((f) => matchAny(f, loaded.profile.artifactsGlob)).sort();
+    }
     if (matches.length === 0) {
       throw new ToolExecError('internal_error', 'build_failure', `构建成功但未匹配到产物（artifactsGlob: ${loaded.profile.artifactsGlob.join(', ')}）`, logRef);
     }
-    const artifactRel = matches[0];
-    const artifactAbs = path.join(task.projectRoot, artifactRel);
+    const artifactRel = matches[0]!;
+    const artifactAbs = path.join(artifactSearchDir, artifactRel);
     const { sha256, sizeBytes } = await sha256File(artifactAbs);
     const archiveDir = path.join(ctx.logDir, 'artifacts');
     await fsp.mkdir(archiveDir, { recursive: true });
@@ -1111,19 +1198,30 @@ export class OpsEngine {
 
     const cmd = verifier.command;
     const cwd = cmd.cwd ? path.resolve(task.projectRoot, cmd.cwd) : task.projectRoot;
-    const r = await runCommand({
-      exe: cmd.exe,
-      args: cmd.args,
-      cwd,
-      env: cmd.env,
-      timeoutMs: cmd.timeoutMs,
-      outputLimitBytes: verifier.outputLimitBytes,
-      signal: ctx.signal,
-    });
+    // SSH 目标（Z3-FZ3B）：同一任务目录（内容寻址，输入未变则命中构建时上传的文件）板上验收
+    const remote = await this.#sshSetup(cmd, task, snapshot.inputManifest, snapshot.inputDigest, '');
+    let r!: CommandResult;
+    try {
+      if (remote) {
+        r = await this.#sshExec(remote, cmd, ctx, verifier.outputLimitBytes);
+      } else {
+        r = await runCommand({
+          exe: cmd.exe,
+          args: cmd.args,
+          cwd,
+          env: cmd.env,
+          timeoutMs: cmd.timeoutMs,
+          outputLimitBytes: verifier.outputLimitBytes,
+          signal: ctx.signal,
+        });
+      }
+    } finally {
+      if (remote) await remote.session.close().catch(() => undefined);
+    }
     const logContent = [
       `# verifier ${verifier.verifierId}`,
       `exe: ${cmd.exe} ${cmd.args.join(' ')}`,
-      `cwd: ${cwd}`,
+      `cwd: ${remote ? `${remote.dir}${cmd.cwd ? '/' + cmd.cwd : ''}（板上 ${remote.target.host}）` : cwd}`,
       `exitCode: ${r.exitCode}`,
       `passExitCode: ${verifier.passExitCode}`,
       `durationMs: ${r.durationMs}`,

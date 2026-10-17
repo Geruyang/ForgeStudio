@@ -5,6 +5,19 @@
  */
 import { z } from 'zod';
 
+/** SSH 目标定义：密码经环境变量注入（passwordEnv），profile 文件不落明文凭证 */
+export const SshTargetSchema = z.object({
+  host: z.string().min(1),
+  port: z.number().int().positive().default(22),
+  username: z.string().min(1),
+  /** 密码所在环境变量名（runner 进程环境；缺省 FD_SSH_PASSWORD） */
+  passwordEnv: z.string().default('FD_SSH_PASSWORD'),
+  /** 板上任务工作目录前缀（缺省 /tmp/forgedesk；任务目录 = 前缀/<taskId>-<inputDigest 前 8 位>） */
+  remoteRoot: z.string().default('/tmp/forgedesk'),
+});
+export type SshTarget = z.infer<typeof SshTargetSchema>;
+export type ProfileCommand = z.infer<typeof ProfileCommandSchema>;
+
 /** 命令定义：可执行路径 + 参数数组，禁止模型拼接任意 shell 字符串 */
 export const ProfileCommandSchema = z.object({
   /** 可执行文件绝对或相对 profile 的路径 */
@@ -16,6 +29,12 @@ export const ProfileCommandSchema = z.object({
   env: z.record(z.string()).optional(),
   /** 单命令预算毫秒；runner 汇总为 profile 预算 */
   timeoutMs: z.number().int().positive().max(30 * 60 * 1000),
+  /**
+   * 远程 SSH 目标（Linux SoC 板卡，如 FZ3B/ZYNQ ZU3EG）：设置后本命令在板上执行——
+   * runner 先把任务输入清单上传到 remoteRoot 下的任务目录，再以该目录为 cwd 远程执行；
+   * 构建产物按 artifactsGlob 从板上取回进入本地证据管线（Z3-FZ3B，契约 v1 增量）。
+   */
+  ssh: SshTargetSchema.optional(),
 });
 
 /** 软件验收定义：固定命令 + 判定规则（评分规则不可由模型改写） */

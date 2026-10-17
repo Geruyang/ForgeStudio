@@ -16,13 +16,15 @@
   },
   "dependencies": {
     "@forgedesk/contracts": "0.1.0",
-    "zod": "3.25.76",
+    "@serialport/bindings-cpp": "13.0.1",
     "serialport": "13.0.0",
-    "@serialport/bindings-cpp": "13.0.1"
+    "ssh2": "^1.16.0",
+    "zod": "3.25.76"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
     "@types/node": "24.10.1",
+    "@types/ssh2": "^1.15.6",
+    "typescript": "5.9.3",
     "vitest": "5.0.4"
   }
 }

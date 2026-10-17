@@ -91,3 +91,16 @@ npm run package        # 构建 → runner 依赖闭包 → electron-builder →
 
 - MCP 服务级：startup_timeout_sec=20、tool_timeout_sec=360
 - runner 操作预算：烧录 300s、验证 120s、构建/测试按 profile timeoutMs 汇总
+
+## vendored 依赖恢复（git 检出后，Z0-4 起）
+
+`tools/vendored/codex/`（44 文件 / ~437MB 引擎二进制）与 `apps/desktop/release*/`、
+`.electron-cache/` 不入库。fresh clone 后恢复：
+
+1. `npm ci`（根，恢复工作区依赖）
+2. `cd tools && npm ci`（安装 `@openai/codex@0.162.1` + 平台包到 tools/node_modules）
+3. 重建 vendored 目录：将 `tools/node_modules/@openai/codex/` 与平台包内容复制到
+   `tools/vendored/codex/`（保持与 DECISIONS D1 记录的 44 文件清单布局一致）
+4. 校验：`Get-FileHash tools\vendored\codex\codex.exe` 对照 DECISIONS D1 的
+   SHA-256 `DD13BDB162A184FA04039488B234A8258EF9B76F84E926C505D5742B19249A6A`；
+   不一致则停止并排查（版本漂移不得作为发行依据）
