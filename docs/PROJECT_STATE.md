@@ -307,3 +307,12 @@ desktop 79+6skip（+更新检查 7）；typecheck 0 错误；安装态 13 步冒
 **R3 运行时审计**（v19 含全部修复：冒烟 13/13 + 走查 36 断言 + FZ3B 硬件闭环 +
 fz3b-make/fz3b-svs 双 live 实机 + B级快照回归——全绿）
 正式包 **v19 SHA-256 `8AF8511A9E373887F788301D99D70A3DD4B33ACB0E6678CE3A22AB5A62F5BAC8`**（未签名）
+
+## 客户端优化（2026-10-18，ZCode）——v20
+
+- main bundle **2.80MB → 0.25MB（-91%）**：electron-updater 构建期 external + 运行时按需
+  require（更新检查路径才加载 js-yaml/semver 全家桶，冷启动不再解析）；sourcemap 外置
+  （内联 sourceMap 使产物体积翻倍，外置可调试且不随包分发）
+- 安装包 211.6→211.1MB（主 bundle 占比小；updater 依赖仍随包 node_modules 供按需加载）
+- 全门复验：冒烟 13/13 + 走查 36 断言 + FZ3B 硬件 GUI 闭环 ✅
+- 正式包 **v20 SHA-256 `9C9D43F9301098E54BB11531801656B2B4FA9C5824FE58340EDA55BBC1850822`**（未签名，release-final 留存含 latest.yml/blockmap）

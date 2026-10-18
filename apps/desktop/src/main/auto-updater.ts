@@ -6,7 +6,8 @@
  *   latest.yml 的 sha256 与 UI 展示一致）；签名证书到位后自动启用强校验；
  * - 全部状态经 IPC 回 renderer（progress/downloaded/error），不阻塞 UI。
  */
-import { autoUpdater } from 'electron-updater';
+// 动态 require（构建 external）：仅更新检查路径加载，冷启动不解析 ~2.3MB 依赖
+const { autoUpdater } = require('electron-updater') as typeof import('electron-updater');
 import { markInstallingUpdate } from './update-install-flag';
 import { shell } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';

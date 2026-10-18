@@ -26,7 +26,8 @@ const common = {
   platform: 'node',
   target: 'node22',
   format: 'cjs',
-  sourcemap: 'inline',
+  // sourcemap 外置（产物内联 sourceMap 会使体积翻倍；外置仍可调试，不随包分发）
+  sourcemap: process.env.FD_SOURCEMAP === 'inline' ? 'inline' : true,
   logLevel: 'info',
   external: NODE_EXTERNAL,
 };
@@ -37,7 +38,9 @@ async function buildAll() {
     format: 'esm',
     entryPoints: [path.join(root, 'src/main/index.ts')],
     outfile: path.join(root, 'dist/main/index.js'),
-    external: [...NODE_EXTERNAL, 'fsevents'],
+    // electron-updater 走 require 动态加载（main bundle -2.3MB：updater 含 js-yaml/semver/
+    // builder-util 全家桶，且仅设置页更新检查用到——冷启动不再解析）
+    external: [...NODE_EXTERNAL, 'fsevents', 'electron-updater'],
     banner: { js: "import { createRequire } from 'node:module';const require = createRequire(import.meta.url);" },
   });
   await esbuild.build({
