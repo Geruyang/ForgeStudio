@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "id": "fz3b-svs",
+  "revision": 1,
+  "title": "FZ3B 语义视频检索 PS 组件（板上编译 + 自检，真实用户项目）",
+  "kind": "software",
+  "build": {
+    "exe": "sh",
+    "args": [
+      "-c",
+      "set -e; gcc -Wall -Wextra -O2 -o read_clock PS/read_clock.c; gcc -Wall -Wextra -O2 -o mjpeg_source PS/mjpeg_source.c; gcc -Wall -Wextra -O2 -march=armv8-a+simd -c PS/native/cnn_v10_native_quant_neon.c -o cnn_neon.o; echo BOARD_BUILD_OK"
+    ],
+    "timeoutMs": 240000,
+    "ssh": {
+      "host": "169.254.220.254",
+      "port": 22,
+      "username": "ubuntu",
+      "passwordEnv": "FZ3B_PASSWORD",
+      "remoteRoot": "/tmp/forgedesk"
+    }
+  },
+  "artifactsGlob": [
+    "read_clock",
+    "mjpeg_source"
+  ],
+  "verifiers": [
+    {
+      "verifierId": "fz3b-svs-selftest",
+      "title": "板上自检（构建完整性 + 非根权限语义；ort_runner 需 /root 下 onnxruntime SDK，非本构建范围）",
+      "command": {
+        "exe": "sh",
+        "args": [
+          "-c",
+          "test -x read_clock && test -x mjpeg_source && ./read_clock >/dev/null 2>&1; rc=$?; if [ $rc -eq 2 ]; then echo 'TESTS_PASSED'; echo 'PERM_GUARD=ok (non-root /dev/mem denied as designed)'; elif [ $rc -eq 0 ]; then echo 'TESTS_PASSED'; echo 'PERM_GUARD=root-context'; else echo \"UNEXPECTED_RC=$rc\"; exit 1; fi"
+        ],
+        "timeoutMs": 60000,
+        "ssh": {
+          "host": "169.254.220.254",
+          "port": 22,
+          "username": "ubuntu",
+          "passwordEnv": "FZ3B_PASSWORD",
+          "remoteRoot": "/tmp/forgedesk"
+        }
+      },
+      "passExitCode": 0,
+      "stdoutMustContain": [
+        "TESTS_PASSED"
+      ],
+      "stdoutMustNotContain": [],
+      "outputLimitBytes": 1048576
+    }
+  ],
+  "inputIncludes": [
+    "package.json",
+    "PS/read_clock.c",
+    "PS/mjpeg_source.c",
+    "PS/native/cnn_v10_native_quant_neon.c"
+  ],
+  "inputExcludes": [
+    "read_clock",
+    "mjpeg_source",
+    "*.o"
+  ],
+  "buildFromSnapshot": true
+}
