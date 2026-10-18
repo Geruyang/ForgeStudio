@@ -70,6 +70,8 @@ export interface ProfileSummary {
   fileSha256: string;
   /** 来源目录标识 */
   source: 'user' | 'bundled';
+  /** 远程 SSH 目标摘要（Z3：host/port/username；不含密码） */
+  sshTargets?: Array<{ host: string; port: number; username: string; passwordEnv: string }>;
 }
 
 export interface CreateTaskRequest {

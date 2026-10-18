@@ -233,3 +233,66 @@ export function globMatch(pattern: string, name: string): boolean {
 
 /** 默认传输：真实 ssh2 会话 */
 export const defaultSshTransport: SshTransport = (target) => Ssh2Session.connect(target);
+
+// ---------------------------------------------------------------------------
+// 目标探测（inspect 用）：TCP 可达 + 密码环境变量已配置（不回显值）
+// ---------------------------------------------------------------------------
+
+import type { EngineeringProfile } from '../../../contracts/src/profile.ts';
+
+export interface SshTargetProbe {
+  host: string;
+  port: number;
+  username: string;
+  passwordEnv: string;
+  passwordConfigured: boolean;
+  reachable: boolean;
+  detail?: string;
+}
+
+/** 收集 profile 中全部唯一 SSH 目标（build + 各 verifier 命令） */
+export function collectSshTargets(profile: EngineeringProfile): SshTarget[] {
+  const seen = new Map<string, SshTarget>();
+  const add = (t: SshTarget) => seen.set(`${t.host}:${t.port}:${t.username}`, t);
+  if (profile.build.ssh) add(profile.build.ssh);
+  for (const v of profile.verifiers) if (v.command.ssh) add(v.command.ssh);
+  return [...seen.values()];
+}
+
+/** TCP 探测（默认 3s 超时）；socket 注入可测 */
+export async function probeSshTarget(
+  target: SshTarget,
+  netImpl: { connect(opts: { host: string; port: number; timeout: number }): { on(ev: string, fn: (arg?: unknown) => void): unknown; destroy(): void } } = net,
+  timeoutMs = 3000,
+): Promise<SshTargetProbe> {
+  const passwordConfigured = Boolean(process.env[target.passwordEnv]);
+  const probe: SshTargetProbe = {
+    host: target.host,
+    port: target.port,
+    username: target.username,
+    passwordEnv: target.passwordEnv,
+    passwordConfigured,
+    reachable: false,
+  };
+  if (!passwordConfigured) probe.detail = `密码未配置（环境变量 ${target.passwordEnv}）`;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const sock = netImpl.connect({ host: target.host, port: target.port, timeout: timeoutMs });
+      sock.on('connect', () => {
+        sock.destroy();
+        resolve();
+      });
+      sock.on('timeout', () => {
+        sock.destroy();
+        reject(new Error('timeout'));
+      });
+      sock.on('error', (e: unknown) => reject(e instanceof Error ? e : new Error(String(e))));
+    });
+    probe.reachable = true;
+  } catch (e) {
+    probe.detail = `端口不通（${e instanceof Error ? e.message : String(e)}）`;
+  }
+  return probe;
+}
+
+import * as net from 'node:net';

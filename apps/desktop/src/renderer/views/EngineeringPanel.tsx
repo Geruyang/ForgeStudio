@@ -131,6 +131,8 @@ export function EngineeringPanel() {
         <EvidenceSnapshotCard task={task} />
       </section>
 
+      <SshTargetsRow profileId={task.profileId} />
+
       {/* 功能分类叠放：设备/操作历史为低频区块，默认收起（标题携带计数，需要时展开） */}
       <section className="panel__section">
         <Collapse
@@ -170,5 +172,30 @@ export function EngineeringPanel() {
         )}
       </section>
     </aside>
+  );
+}
+
+/** 远程 SSH 目标行（Z3）：profile 带 ssh 命令时呈现目标清单（host:port · 用户 · 密码变量名）。
+ *  可达性经「环境检查」探测（inspect 输出 sshTargets），此处为静态信息呈现。 */
+function SshTargetsRow({ profileId }: { profileId: string }) {
+  const profiles = useAppStore((s) => s.profileSummaries);
+  const targets = profiles.find((p) => p.id === profileId)?.sshTargets ?? [];
+  if (targets.length === 0) return null;
+  return (
+    <div className="device-row" data-testid="ssh-targets-row">
+      <div className="device-row__head">
+        <span className="device-row__name">远程目标（SSH 板卡）</span>
+      </div>
+      <div className="device-row__meta" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        {targets.map((t) => (
+          <span key={`${t.host}:${t.port}:${t.username}`}>
+            <span className="fd-code">{t.host}:{t.port}</span> · {t.username} · 密码变量 <span className="fd-code">{t.passwordEnv}</span>
+          </span>
+        ))}
+      </div>
+      <div className="device-row__meta" style={{ fontSize: 11 }}>
+        构建与验收在该板卡上执行（输入上传至板上任务目录，产物取回本地证据管线）；可达性经「环境检查」探测。
+      </div>
+    </div>
   );
 }

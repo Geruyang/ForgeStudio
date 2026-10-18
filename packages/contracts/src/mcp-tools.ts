@@ -57,6 +57,20 @@ export const InspectOutputSchema = z.object({
     }),
   ),
   missing: z.array(z.string()),
+  /** 远程 SSH 目标探测（Z3：TCP 可达 + 密码环境变量是否已配置；不回显密码） */
+  sshTargets: z
+    .array(
+      z.object({
+        host: z.string(),
+        port: z.number().int().positive(),
+        username: z.string(),
+        passwordEnv: z.string(),
+        passwordConfigured: z.boolean(),
+        reachable: z.boolean(),
+        detail: z.string().optional(),
+      }),
+    )
+    .default([]),
   currentSnapshot: z
     .object({
       inputDigest: Sha256Schema,

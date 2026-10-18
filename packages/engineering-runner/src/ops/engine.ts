@@ -61,6 +61,8 @@ import {
   defaultSshTransport,
   buildRemoteCmdline,
   remoteTaskDir,
+  collectSshTargets,
+  probeSshTarget,
   type SshSession,
   type SshTransport,
 } from './ssh-transport.ts';
@@ -464,6 +466,12 @@ export class OpsEngine {
       kind: l.profile.kind,
       fileSha256: l.fileSha256,
       source: l.filePath.startsWith(userPrefix) ? ('user' as const) : ('bundled' as const),
+      sshTargets: collectSshTargets(l.profile).map((t) => ({
+        host: t.host,
+        port: t.port,
+        username: t.username,
+        passwordEnv: t.passwordEnv,
+      })),
     }));
   }
 
@@ -939,10 +947,15 @@ export class OpsEngine {
     const task = this.requireTask(input.taskId);
     const loaded = await this.requireProfile(task.profileId);
     const probes = await probeToolVersions(loaded.profile);
+    // Z3：远程 SSH 目标探测（TCP 可达 + 密码环境变量；不回显密码值）
+    const sshTargets = await Promise.all(collectSshTargets(loaded.profile).map((t) => probeSshTarget(t)));
     const snapshot = this.storage.latestSnapshot(task.id);
     this.setOperationStatus(op, 'succeeded', (o) => {
       o.endedAt = new Date().toISOString();
-      o.resultSummary = `工具链探测完成（缺失 ${probes.filter((p) => !p.available).length} 项）`;
+      const sshDown = sshTargets.filter((t) => !t.reachable || !t.passwordConfigured).length;
+      o.resultSummary = `工具链探测完成（缺失 ${probes.filter((p) => !p.available).length} 项` +
+        (sshTargets.length > 0 ? `，SSH 目标异常 ${sshDown}/${sshTargets.length}` : '') +
+        '）';
     });
     return {
       ok: true,
@@ -956,6 +969,7 @@ export class OpsEngine {
         missingHint: p.missingHint,
       })),
       missing: probes.filter((p) => !p.available).map((p) => p.missingHint ?? p.tool),
+      sshTargets,
       currentSnapshot: snapshot
         ? { inputDigest: snapshot.inputDigest, hasGit: snapshot.hasGit, capturedAt: snapshot.capturedAt }
         : undefined,

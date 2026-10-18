@@ -132,6 +132,8 @@ export interface AppState {
   models: EngineModelInfo[];
   selectedModel: string | null;
   tasks: TaskOverview[];
+  /** profile 摘要（listProfiles 缓存；Z3 远程目标呈现用） */
+  profileSummaries: import('../contracts/runner').ProfileSummary[];
   activeTaskId: string | null;
   devices: EnumeratedDevice[];
   pendingAuths: PendingAuthorization[];
@@ -161,6 +163,8 @@ export interface AppActions {
   destroy(): void;
   refreshThreads(): Promise<void>;
   refreshTasks(): Promise<void>;
+  /** profile 摘要刷新（Z3：含 sshTargets 供面板呈现） */
+  refreshProfiles(): Promise<void>;
   refreshTask(taskId: string): Promise<void>;
   refreshDevices(): Promise<void>;
   refreshPendingAuths(): Promise<void>;
@@ -390,6 +394,7 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
       models: [],
       selectedModel: null,
       tasks: [],
+      profileSummaries: [],
       activeTaskId: null,
       devices: [],
       pendingAuths: [],
@@ -439,6 +444,7 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
         await Promise.all([
           safe(() => get().refreshThreads()),
           safe(() => get().refreshTasks()),
+          safe(() => get().refreshProfiles()),
           safe(() => get().refreshDevices()),
           safe(() => get().refreshPendingAuths()),
           safe(() => get().refreshDiagnostics()),
@@ -493,6 +499,10 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
           activeTaskId:
             s.activeTaskId && tasks.some((t) => t.id === s.activeTaskId) ? s.activeTaskId : latestTaskId(tasks),
         }));
+      },
+      async refreshProfiles() {
+        const r = await bridge.runner.listProfiles();
+        if (r.ok) set({ profileSummaries: r.value });
       },
       async refreshTask(taskId) {
         const st = taskRefresh.get(taskId) ?? { inFlight: false, dirty: false, lastAppliedUpdatedAt: '' };
