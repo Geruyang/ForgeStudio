@@ -7,6 +7,7 @@
  * - 全部状态经 IPC 回 renderer（progress/downloaded/error），不阻塞 UI。
  */
 import { autoUpdater } from 'electron-updater';
+import { markInstallingUpdate } from './update-install-flag';
 import { shell } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
 
@@ -77,13 +78,7 @@ export async function downloadUpdate(): Promise<void> {
 
 /** 安装（downloaded 后用户确认触发；退出并运行安装器） */
 export function quitAndInstall(): void {
-  // 通知宿主跳过 will-quit 拦截（否则 app.exit(0) 抢先，安装器不启动）
-  try {
-    const host = require('./index.ts');
-    if (host && typeof host.markInstallingUpdate === 'function') host.markInstallingUpdate();
-  } catch {
-    /* 测试环境无宿主 */
-  }
+  markInstallingUpdate(); // will-quit 检查该标记跳过优雅收尾拦截，使安装器得以启动
   autoUpdater.quitAndInstall(false, true);
 }
 

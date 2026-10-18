@@ -70,7 +70,12 @@ export class Ssh2Session implements SshSession {
     }
     const conn = new Client();
     const connReady = new Promise<void>((resolve, reject) => {
-      conn.on('ready', () => resolve()).on('error', (e: Error) => reject(e));
+      conn.on('ready', () => resolve());
+      conn.on('error', (e: Error) => {
+        // 连接失败必须销毁 socket（否则句柄悬挂，进程不退出）
+        try { conn.end(); } catch { /* 已断 */ }
+        reject(e);
+      });
     });
     conn.connect({
       host: target.host,
@@ -147,6 +152,7 @@ export class Ssh2Session implements SshSession {
           if (settled) return;
           settled = true;
           clearTimeout(timer);
+          clearTimeout(hardFallback);
           args.signal?.removeEventListener('abort', onAbort);
           resolve({
             exitCode: cancelled || timedOut ? null : (exitCode ?? -1),
@@ -158,6 +164,12 @@ export class Ssh2Session implements SshSession {
         };
         stream.on('exit', (code: number | null) => finish(code));
         stream.on('close', () => finish(null));
+        // 超时硬兜底：close/exit 均延迟时（实测 OpenSSH 7.6 + SFTP 并存），timedOut 结果不悬挂
+        const hardFallback = setTimeout(() => {
+          timedOut = true;
+          try { stream.close(); } catch { /* 已关 */ }
+          finish(null);
+        }, args.timeoutMs + 5_000);
       });
     });
   }
