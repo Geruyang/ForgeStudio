@@ -223,3 +223,20 @@ desktop 79+6skip（+更新检查 7）；typecheck 0 错误；安装态 13 步冒
    SSH 目标的 UI 呈现（当前经 profile 直达）
 3. Z2C 完整更新通道（electron-updater，待签名证书）；审阅面板（review/start UI）
 4. 第二用户回归、DeepSeek/Kimi 列表 live（待外部输入）
+
+## v15 后续交付（2026-10-18，ZCode）
+
+- [x] **A-12 v15 复验**：切换智谱 glm-5.3（ChatGPT 额度 10-23 恢复）——模型修复缺陷 → Node 侧
+  独立核验 → MCP 留证（3 操作 2 证据）→ 人工验收 → 导出全链通过（ACCEPTANCE 已记录）。
+- [x] **FZ3B 工程深化**：真实 make 工程（Makefile + C 自检工具，板上原生构建）+ fz3b-make profile；
+  实机验收 3.6s（make→自检→B 级证据落库），**B 级快照 × SSH 组合**同用例覆盖。
+- [x] **审阅入口（Z2B-2 UI）**：IPC engine.review → adapter.startReview；ChatView「代码审阅」按钮
+  （live 会话 + 非回合中显示）；store 双守卫（无会话/回合中不调桥）。审阅过程以普通会话事件回流
+  现有消息流渲染（协议评估结论：inline 审阅无独立 item 视图需求）。
+- 测试基线：contracts 34 / runner 153+2skip(live) / mcp 36 / adapter 62 / desktop 80+6skip；typecheck 0。
+
+## 下一步
+
+1. v16 打包（含审阅入口与 FZ3B profile）+ 走查补「代码审阅」按钮断言（需模型回合，走查暂无）
+2. FZ3B：SSH 目标在设备/授权 UI 的呈现（当前经 profile 直达，无授权卡语义——按需细化）
+3. electron-updater 完整通道（待签名证书）；DeepSeek/Kimi 列表 live（待 key）；第二用户（暂缓）

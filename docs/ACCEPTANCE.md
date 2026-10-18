@@ -348,3 +348,18 @@
 - A-12（模型驱动闭环 v15 复验）：**阻塞**——ChatGPT 订阅额度用尽（原文"You've hit your usage
   limit…try again at Oct 23rd, 2026"；引擎如实呈现 systemError 不虚报）。v15 引擎链健康由走查
   step 9 证明（握手/thread/start/authStatus/预热模型下拉 8 项）
+
+### A-12 v15 复验（2026-10-18，智谱 glm-5.3，真实模型回合）
+- 版本：ForgeStudio v15 @ dad7348+；提供方：zhipu/glm-5.3（ChatGPT 订阅额度 10-23 恢复前的替代路径）
+- 动作：激活 zhipu（settings.modelProvider）→ node scripts/model-task-e2e.mjs
+- 实际：**全部通过**——模型修复 wordcount 空输入缺陷（Node 侧独立核验：空输入退出 0、输出 words=0），
+  经 MCP 工具 engineering.build/test 留证（3 操作 2 证据，4 次审批经"本会话内允许"），
+  人工验收点亮、导出成功、任务验收通过徽标点亮
+- 级别：T1（真实模型 + 真实构建 + 固定验收 + 证据）
+
+### A-14-SSH 深化：FZ3B make 工程（2026-10-18，实机）
+- 版本：同上；动作：`FZ3B_PASSWORD=*** npx vitest run test/ssh-fz3b-make.live.test.ts`
+- 实际：**通过（3.6s）**——板上 make 原生构建（aarch64 gcc，B 级快照上传）→ fzprobe 板上自检
+  （TESTS_PASSED + BOARD_HOST=EdgeBoard + KERNEL=4.14.0-xilinx-v2018.3 + CORES=4）→
+  产物自板上取回（sha256 cad2dc66…）→ B 级证据落库、验收项点亮
+- 同时覆盖 **B 级快照 × SSH 组合**（buildFromSnapshot + ssh 命令）：上传内容为快照文件
