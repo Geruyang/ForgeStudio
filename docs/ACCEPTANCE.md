@@ -405,3 +405,20 @@
   移至 close 前派生的独立进程
 - 走查环境注记：应用需以 `--remote-debugging-port` 直启（Node spawn 方式；走查端口避开
   僵尸 socket 残留），CDP 健康以 node fetch /json/version 验证为准（curl 受代理环境影响误报）
+
+### Z4-B3 MXC 沙箱预置（2026-10-19，管理员授权，实机实测）
+- 动作：UAC 提权执行 `codex sandbox setup --current-user --elevated --codex-home %APPDATA%\ForgeStudio\engine`
+- 实际（系统状态核验为准）：**CodexSandboxOffline / CodexSandboxOnline 本地账户（启用）+
+  防火墙规则 codex_sandbox_offline_block_outbound / _loopback_tcp / _loopback_udp（出站全断）安装成功**；
+  `codex sandbox` 受限令牌执行验证——C:\Windows 写入"拒绝访问"；doctor：restricted fs +
+  restricted network · approval OnRequest。CLI sandbox 进程属主为当前用户（受限令牌），
+  账户隔离层由引擎侧执行模式按需消费（未在模型回合中直接观测到账户切换，如实记录）。
+- 级别：T3 环境预置评估；产品设备操作语义不变（独立授权 + 执行器强校验，不宣称受控自主）。
+
+### Z4-B2 签名管线端到端验证（2026-10-19，自签测试证书，正式产物未动）
+- 前置：Windows SDK 未装 → 使用 @electron/windows-sign（electron-builder 传递依赖，内置 vendor/signtool.exe）
+- 实测：New-SelfSignedCertificate（CodeSigning，2 小时时效，测后已删）→ v22 安装包副本两分支签名
+  （PFX 文件 / CurrentUser\My 指纹）——**Get-AuthenticodeSignature 签名者 CN=ForgeStudio Sign
+  Pipeline Test、TimeStamper 已嵌入、Status=UnknownError（自签无信任链，预期；正式证书应 Valid）**；
+  正式 v22 产物复验仍 NotSigned。package.mjs 预检：PFX 缺文件/缺密码两用例构建前即报错。
+- 级别：T3 发布工程；正式签名待真实证书（BUILD.md 选型参考：Azure Trusted Signing / Certum OSS 等）

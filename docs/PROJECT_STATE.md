@@ -395,3 +395,21 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
 - git commit：`509e926`（应用代码在打包后未变——打包后仅改走查脚本与文档，不随包分发）
 - 安装包 SHA-256：`8583442814815E59C0451AA2426FCA7305C31C0EA9F2B3ECC610FB4D0F83EBC3`
 - package.json version：`0.1.0`（NSIS；未签名，NotSigned 实测）
+
+## Z4-B2/B3 完成（2026-10-19，用户提供全部授权）
+
+- [x] **Z4-B3 MXC 沙箱预置**：管理员授权下 `codex sandbox setup --current-user --elevated`
+  （UAC 一次确认）——**CodexSandboxOffline/CodexSandboxOnline 账户已建 + offline 断网/断回环
+  防火墙规则×3 已装**（首次提权实际完成，exit 1 系输出重定向问题，系统状态核验为准）。
+  实测：受限令牌下 C:\Windows 写入被拒、doctor 报 restricted fs+network；CLI sandbox 进程
+  属主为当前用户受限令牌（账户隔离层由引擎按执行模式消费，如实记录）。评估结论与回滚方式
+  （codex sandbox uninstall）见 KNOWN_ISSUES；Defender 排除项未加（安全姿态变更待用户明示）。
+- [x] **Z4-B2 签名管线接入**：sign-hook.cjs（electron-builder 钩子，@electron/windows-sign
+  内置 signtool 免 SDK）+ sign-installer.mjs（独立复签）+ package.mjs 预检前置与挂接。
+  **自签测试证书端到端实测通过**：PFX 与证书存储指纹两分支、sha256、DigiCert RFC3161 时间戳
+  均嵌入（Get-AuthenticodeSignature 签名者 CN 正确；UnknownError 为自签无信任链预期）；
+  正式 v22 产物未动（复验仍 NotSigned）。预检两失败用例即错即停。BUILD.md 增签名章节与
+  证书选型参考（Azure Trusted Signing/Certum OSS/OV/EV）。**剩余动作：用户提供真实证书
+  （环境变量一配即签，届时走 v23 验证关口）**。
+- 至此 **Z4 清单全部闭环**（Kimi/Z4-A1/A2 暂缓项除外）：B1 DeepSeek ✅、B2 管线 ✅（待证书）、
+  B3 ✅、可选 1–3 ✅（v22）、D-4b ✅、win-unpacked 清理 ✅。

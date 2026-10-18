@@ -9,6 +9,27 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url))); // apps/desktop
 
+// 签名接入（Z4-B2，预检前置——配置错误在昂贵构建之前失败）：
+// FD_SIGN_PFX(+FD_SIGN_PFX_PASSWORD) 或 FD_SIGN_CERT_THUMBPRINT 配置时挂自定义签名钩子
+// （sign-hook.cjs，@electron/windows-sign + 内置 signtool，无需 Windows SDK）。
+// 签名发生在 electron-builder 计算 blockmap 之前 → latest.yml/SHA-256 计算的是签名后产物。
+// 未配置则保持未签名（如实记录，不虚报）。
+const signPfx = process.env.FD_SIGN_PFX ?? '';
+const signThumb = process.env.FD_SIGN_CERT_THUMBPRINT ?? '';
+let signArgs = '';
+if (signPfx || signThumb) {
+  if (signPfx && !fs.existsSync(signPfx)) {
+    throw new Error(`[package] FD_SIGN_PFX 指向的文件不存在：${signPfx}`);
+  }
+  if (signPfx && !process.env.FD_SIGN_PFX_PASSWORD) {
+    throw new Error('[package] 配置了 FD_SIGN_PFX 但缺少 FD_SIGN_PFX_PASSWORD（PFX 密码）');
+  }
+  signArgs = ' --config.win.signtoolOptions.sign=./scripts/sign-hook.cjs';
+  console.log(`[package] 签名已启用：${signPfx ? `PFX ${signPfx}` : `证书存储指纹 ${signThumb.slice(0, 8)}…`}（sha256 + 时间戳）`);
+} else {
+  console.log('[package] 未配置签名凭据（FD_SIGN_PFX 或 FD_SIGN_CERT_THUMBPRINT）→ 产物未签名');
+}
+
 console.log('[package] 1/4 完整构建（renderer + main/preload/bridge/runner）');
 execSync('npm run build', { cwd: root, stdio: 'inherit' });
 
@@ -54,7 +75,7 @@ console.log('[package] runner 依赖闭包校验通过');
 console.log('[package] 3/4 electron-builder（NSIS per-user）');
 // FD_EB_OUTPUT：输出目录覆盖（默认 release；旧 win-unpacked 被系统句柄锁定时用新目录避开）
 const ebOutput = process.env.FD_EB_OUTPUT ?? 'release';
-execSync(`npx electron-builder --win nsis --x64 --publish never --config.directories.output=${ebOutput}`, {
+execSync(`npx electron-builder --win nsis --x64 --publish never --config.directories.output=${ebOutput}${signArgs}`, {
   cwd: root,
   stdio: 'inherit',
 });

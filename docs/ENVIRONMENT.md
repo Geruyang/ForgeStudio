@@ -73,3 +73,11 @@
 - 模型配额：ChatGPT 订阅额度已于 2026-10-17 用尽（10-23 重置）；方舟/智谱/千问 key 已配置；
   **DeepSeek key 2026-10-18 配置并 live 实测（模型列表 2 项 + 推理 sanity 通过）**；
   Kimi 无 key（用户指示暂缓）
+
+## 开发工具链补记（2026-10-19）
+
+| 工具 | 状态 | 说明 |
+|---|---|---|
+| signtool.exe（Windows SDK） | **未安装** | 签名走 `@electron/windows-sign` 内置 vendor signtool（Z4-B2 实测可用） |
+| MXC 沙箱（codex Windows sandbox） | **已预置** | CodexSandboxOffline/Online 账户 + offline 防火墙规则（UAC 一次性安装）；回滚 `codex sandbox uninstall` |
+| Defender 排除项 | 未添加 | codex doctor 建议为 codex 可执行加排除；属安全姿态变更，待用户明示后再做 |

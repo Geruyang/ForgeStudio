@@ -122,3 +122,41 @@ npm run package        # 构建 → runner 依赖闭包 → electron-builder →
 更新源 URL 由用户在 设置 → 诊断与关于 → 更新检查 配置；当前仅比对与告知，
 不自动下载安装——electron-updater 完整通道（差分下载/签名校验/替换重启）
 待代码签名证书与更新服务器就绪后引入（见 ROADMAP Z2C）。
+
+## 代码签名（Z4-B2，2026-10-19 接入）
+
+**管线状态：签名链路已接入并端到端验证（自签测试证书实测：PFX 与证书存储指纹两分支、
+sha256 + DigiCert RFC3161 时间戳均嵌入成功）；正式签名待用户提供真实证书——当前产物仍为未签名。**
+
+### 启用方式（凭据经环境变量注入，不落盘不入库）
+
+```powershell
+# 方式一：PFX 文件
+$env:FD_SIGN_PFX = "D:\certs\forgedesk.pfx"; $env:FD_SIGN_PFX_PASSWORD = "***"; npm run package
+
+# 方式二：证书存储（CurrentUser\My）按 SHA-1 指纹
+$env:FD_SIGN_CERT_THUMBPRINT = "<thumbprint>"; npm run package
+
+# 可选：自定义时间戳服务器（默认 http://timestamp.digicert.com）
+$env:FD_SIGN_TIMESTAMP_URL = "http://timestamp.sectigo.com"
+```
+
+- 实现：`apps/desktop/scripts/sign-hook.cjs`（electron-builder 自定义签名钩子，经
+  `--config.win.signtoolOptions.sign` 挂接）+ `sign-installer.mjs`（独立签名/复签工具）。
+- 签名引擎 `@electron/windows-sign` 随 electron-builder 分发、**内置 vendor signtool.exe，无需安装 Windows SDK**。
+- 签名发生在 electron-builder 计算 blockmap 之前 → `latest.yml`（sha512）与 SHA256SUMS 对应**签名后**产物，差分更新不受影响。
+- 仅 sha256（SHA-1 自 2016 起 Windows 弃用，钩子内跳过）；预检前置（PFX 缺文件/缺密码在构建前即报错）。
+- 复验命令：`Get-AuthenticodeSignature <exe>` → 正式证书应显示 `Valid`（自签测试证书显示
+  `UnknownError`/无信任链，属预期——2026-10-19 实测记录见 ACCEPTANCE）。
+
+### 证书选型参考（价格以各官网为准，2026-10 时点）
+
+| 方案 | 适合 | 说明 |
+|---|---|---|
+| Azure Trusted Signing | 个人/小团队首选 | 按月订阅（约 $9.99/月起），无硬件 token、签发快；electron-builder 原生 `azureSignOptions` 支持（另一接入路径，与本钩子互斥） |
+| Certum Open Source | 开源项目 | 面向开源身份的代码签名证书（年费较低），需项目公开仓库 |
+| SSL.com / GlobalSign / DigiCert OV | 企业 | 组织验证；SmartScreen 信誉逐步积累 |
+| 同上 EV | 追求立即消除 SmartScreen 告警 | EV 证书通常即时获得 SmartScreen 信誉，价格最高、需硬件 token |
+
+**如实说明**：自签证书可走通管线但**不能**消除 SmartScreen 告警（无受信根链），不作为交付选项；
+未签名安装包触发 SmartScreen 告警属预期，交付文档继续明示"未签名"。
