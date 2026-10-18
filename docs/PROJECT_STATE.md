@@ -257,3 +257,23 @@ desktop 79+6skip（+更新检查 7）；typecheck 0 错误；安装态 13 步冒
 1. FZ3B GUI 级使用链：应用向 runner 传递 SSH 凭据环境（当前需带 FZ3B_PASSWORD 启动应用），
    与设备授权卡语义整合（按需）
 2. electron-updater 完整通道（待签名证书）；DeepSeek/Kimi 列表 live（待 key）；第二用户（暂缓）
+
+## v17 阶段交付（2026-10-18，ZCode）——FZ3B 硬件 GUI 闭环打通
+
+- [x] **SSH 凭据产品内管理**：dataDir/ssh-credentials.env（与 provider.env 同保护级）；
+  IPC set/clear/names（仅回变量名）；RunnerHost 启动注入子进程 env；远程目标行升级为
+  「密码已配置/未配置徽标 + 配置/更换（type=password 不回显）/清除 + 变量名呈现」；
+  重启注入语义如实提示。测试 +1（配置交互→状态翻转→不回显）。
+- [x] **v17 验证关口**：**SHA-256 `5EA743A20CC47EF505B3704942DA09E8A9B96D9D3820C37F14B15B6B7057F879`**
+  （未签名，release-final 留存）→ 静默安装（标记核验）→ **安装态冒烟 13/13** →
+  **GUI 走查 exit=0 / 36 断言全绿**。
+- [x] **走查 9d：FZ3B 真实硬件 GUI 闭环**（产品口号的完整实证）：真实按钮路径
+  建任务 → 远程目标行呈现 → 环境检查（SSH 目标 TCP 探测）→ **板上 make 构建 + 产物取回** →
+  **板上自检验收点亮**——全程经 UI/IPC/runner/SSH 链路在 ZU3EG 实机执行。
+- 用户已补充有额度的 API key（智谱路径 A-12 已于 v15 复验通过；ChatGPT 额度 10-23 恢复）。
+- 测试基线：contracts 34 / runner 157+2skip / mcp 36 / adapter 62 / desktop 83+6skip；typecheck 0。
+
+## 下一步
+
+1. electron-updater 完整通道（待签名证书）；DeepSeek/Kimi 列表 live（待 key）；第二用户（暂缓）
+2. （可选）FZ3B 更大工程样例（多文件 C 工程/板上单元测试框架）；设备授权卡与 SSH 目标整合

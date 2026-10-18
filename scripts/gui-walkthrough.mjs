@@ -479,6 +479,65 @@ async function main() {
     assert(await evalJs(`!document.querySelector('[data-testid="ssh-targets-row"]')`), '远程目标行按渲染条件隐藏（profile 无 SSH 目标）');
   }
 
+  log('9d', 'FZ3B 真实硬件 GUI 闭环（Z3：凭据 → 建任务 → 检查 → 板上构建 → 板上验收）');
+  {
+    // 前置：fz3b-make profile 已在用户 profiles 目录；板卡可达；
+    // 应用以 FZ3B_PASSWORD=ubuntu 直启（BUILD.md 直启方式）——凭据注入 runner 后板上链路可用
+    const names = await evalJs(`(async()=>{const r=await window.forgedesk.app.sshCredentialNames();return r.ok?r.value:null})()`);
+    log('9d', `已配置凭据变量：${JSON.stringify(names)}`);
+    if (!names || !names.includes('FZ3B_PASSWORD')) {
+      const setR = await evalJs(`(async()=>{const r=await window.forgedesk.app.sshCredentialSet('FZ3B_PASSWORD','ubuntu');return r.ok})()`);
+      assert(setR === true, 'FZ3B 凭据保存（产品内存储，重启后注入 runner）');
+      log('9d', '凭据本次保存（注入下次启动生效）——本走查依赖直启注入路径');
+    }
+    const fzTask = await evalJs(`(async()=>{
+      const r = await window.forgedesk.runner.createTask({
+        projectRoot: 'E:/AiProject/agent-design/ForgeDesk-zcode/engineering/fixtures/fz3b-make',
+        profileId: 'fz3b-make',
+        title: 'GUI 硬件闭环：FZ3B make 板上构建',
+        acceptance: [{ kind: 'executable', verifierId: 'fz3b-selftest', title: '板上自检', expected: 'TESTS_PASSED + 板卡身份', manualRequired: false, required: true }],
+      });
+      return r.ok ? r.value.id : String(JSON.stringify(r.failure ?? {}).slice(0, 120));
+    })()`);
+    assert(typeof fzTask === 'string' && fzTask.startsWith('task-'), `FZ3B 任务创建（${String(fzTask).slice(0, 40)}）`);
+    log('9d', `任务 ${fzTask}`);
+    // 真实按钮路径：切任务 → 远程目标行 → 检查（SSH 探测）→ 板上构建 → 板上自检
+    await waitFor(
+      `(() => { const sel = document.querySelector('select[aria-label="当前任务"]'); return !!sel && [...sel.options].some(o => o.textContent.includes('FZ3B make 板上构建')); })()`,
+      20000,
+      'FZ3B 任务出现在任务选择器',
+    );
+    await evalJs(`(() => {
+      const sel = document.querySelector('select[aria-label="当前任务"]');
+      const opt = [...sel.options].find(o => o.textContent.includes('FZ3B make 板上构建'));
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+      setter.call(sel, opt.value);
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`);
+    await waitFor(`!!document.querySelector('[data-testid="ssh-targets-row"]')`, 10000, 'FZ3B 任务远程目标行呈现');
+    await evalJs(`document.querySelector('[data-testid="inspect-btn"]')?.click()`);
+    await waitFor(`!document.querySelector('[data-testid="inspect-btn"]')?.textContent.includes('检查中')`, 60000, 'FZ3B 环境检查完成（含 SSH 目标探测）');
+    await evalJs(`document.querySelector('[data-testid="build-btn"]')?.click()`);
+    await waitFor(
+      `!document.querySelector('[data-testid="build-btn"]')?.textContent.includes('构建中') && (document.querySelector('[data-testid="artifact-list"]')?.textContent?.trim().length ?? 0) > 0`,
+      240000,
+      'FZ3B 板上 make 构建完成 + 产物取回',
+    );
+    const clicked = await evalJs(`(() => {
+      const item = [...document.querySelectorAll('.acc-item')].find(el => el.textContent.includes('fz3b-selftest'));
+      const btn = item?.querySelector('[data-testid="run-verifier"]');
+      if (btn && !btn.disabled) { btn.click(); return true; }
+      return false;
+    })()`);
+    assert(clicked === true, '点击 FZ3B 板上自检验证');
+    await waitFor(
+      `[...document.querySelectorAll('.acc-item')].find(el => el.textContent.includes('fz3b-selftest'))?.dataset.accStatus === 'passed'`,
+      240000,
+      'FZ3B 板上自检 passed（真实板卡执行）',
+    );
+    log('9d', 'FZ3B 硬件 GUI 闭环：板上构建 + 板上验收点亮 ✅');
+  }
+
   log('10', 'Browser.close 优雅退出');
   try {
     await send('Browser.close');
