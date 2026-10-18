@@ -5,6 +5,7 @@
 import { useEffect, useRef } from 'react';
 import { useAppStore } from '../store/context';
 import { TokenUsageBar } from '../components/chat/TokenUsageBar';
+import { ReviewPanel } from '../components/chat/ReviewPanel';
 import { MessageItem } from '../components/chat/MessageItem';
 import { ApprovalCard } from '../components/chat/ApprovalCard';
 import { TurnStatusBar } from '../components/chat/TurnStatusBar';
@@ -68,6 +69,7 @@ export function ChatView() {
           </button>
         </div>
       )}
+      <ReviewPanel />
       <div className="chat-stream" ref={streamRef}>
         {firstRun ? (
           <div className="chat-empty">

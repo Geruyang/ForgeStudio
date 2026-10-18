@@ -871,8 +871,14 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
           failureToast({ kind: 'permission_denied', message: '回合进行中，请等待结束后再审阅', occurredAt: nowIso() });
           return;
         }
+        // 乐观置待归属标记：审阅回合的 turn/started 可能先于请求返回到达；
+        // 失败即清除（下一个 turn/started 不会被误标为审阅）
+        set((s) => ({ conversation: { ...s.conversation, reviewPending: true } }));
         const r = await bridge.engine.review();
-        if (!r.ok) failureToast(r.failure); // 审阅过程以普通会话事件回流
+        if (!r.ok) {
+          set((s) => ({ conversation: { ...s.conversation, reviewPending: false } }));
+          failureToast(r.failure); // 审阅过程以普通会话事件回流
+        }
       },
 
       // ---- 输入 / 回合 ----
@@ -887,7 +893,13 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
           failureToast(r.failure);
           return false;
         }
-        set({ draft: '', turnRunning: true, stopPhase: 'idle' });
+        // 用户主动发送的回合不归属审阅（清除 startReview 的待归属标记）
+        set((s) => ({
+          draft: '',
+          turnRunning: true,
+          stopPhase: 'idle',
+          conversation: { ...s.conversation, reviewPending: false },
+        }));
         return true;
       },
       async steerDraft() {

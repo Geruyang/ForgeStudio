@@ -9,11 +9,34 @@
  * 原生目录选择对话框不可自动化：向导的项目选择环节留给人工（组件测试已覆盖表单逻辑）。
  * 用法：node scripts/gui-walkthrough.mjs
  */
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { tmpdir } from 'node:os';
+
 const PORT = process.env.FD_GUI_DEBUG_PORT ?? '9223';
 const PROJECT_ROOT = process.env.FD_GUI_PROJECT_ROOT
   ?? 'E:/AiProject/agent-design/ForgeDesk-zcode/engineering/fixtures/sample-tool';
 const PROFILE_ID = 'sample-tool-wordcount';
 const TASK_TITLE = 'GUI 走查：sample-tool 空输入缺陷';
+
+/** 配置快照文件（2b 写入；恢复助手消费后自删） */
+const SNAPSHOT_PATH = path.join(tmpdir(), 'fd-walkthrough-snapshot.json');
+
+/**
+ * 派生独立恢复进程：Browser.close 的 CDP 响应永不返回（浏览器关闭即断连），
+ * 父进程在该 await 挂起、事件循环排空后以 0 退出——**第 10 步之后的任何代码都可能
+ * 不执行**（实测教训）。因此恢复用户配置的动作必须在 close 之前交给 detached 子进程兜底。
+ */
+function spawnRestoreHelper() {
+  try {
+    spawn(process.execPath, [path.join(import.meta.dirname, 'walkthrough-restore.mjs'), SNAPSHOT_PATH], {
+      detached: true,
+      stdio: 'ignore',
+      env: process.env,
+    }).unref();
+  } catch {}
+}
 
 const log = (step, detail) => console.log(`[gui] ${step}${detail ? ' — ' + detail : ''}`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -177,6 +200,27 @@ async function main() {
   await waitFor(`!document.querySelector('[data-testid="settings-language"]')`, 5000, 'settings closed');
 
   log('2b', '多提供方配置链（DeepSeek 样例：配置→徽标→引擎 config 生成→清除）');
+  // 快照用户真实配置（缺陷修复：9b 清样例曾连带删除 provider.env 里既有的真实 DEEPSEEK key
+  // ——脚本不得假设 DEEPSEEK 条目是自己的样例；退出前恢复快照）
+  let snapshotDeepseekKeyLine = null;
+  let snapshotModelProvider;
+  {
+    const appData = process.env.APPDATA ?? '';
+    try {
+      const envText = readFileSync(path.join(appData, 'ForgeStudio', 'engine', 'provider.env'), 'utf8');
+      snapshotDeepseekKeyLine = envText.split(/\r?\n/).find((l) => /^DEEPSEEK_API_KEY=/.test(l.trim())) ?? null;
+    } catch {}
+    try {
+      snapshotModelProvider = JSON.parse(readFileSync(path.join(appData, 'ForgeStudio', 'settings.json'), 'utf8')).modelProvider;
+    } catch {}
+    log('2b', `配置快照：DEEPSEEK key ${snapshotDeepseekKeyLine ? '存在（退出后恢复）' : '不存在'}；modelProvider=${snapshotModelProvider ?? '（未设置）'}`);
+    // 快照落盘：恢复助手（detached）消费——父进程 Browser.close 后的代码不可依赖
+    writeFileSync(
+      SNAPSHOT_PATH,
+      JSON.stringify({ deepseekKeyLine: snapshotDeepseekKeyLine, modelProvider: snapshotModelProvider ?? null }, null, 2),
+      'utf8',
+    );
+  }
   await evalJs(`[...document.querySelectorAll('.topbar button')].find(b => b.textContent.includes('设置'))?.click()`);
   await waitFor(`!!document.querySelector('[data-testid="settings-provider-select"]')`, 10000, 'provider select');
   // 订阅套餐说明断言（火山方舟有 Coding Plan 文案）
@@ -396,8 +440,6 @@ async function main() {
 
   log('9b', '引擎 config 多提供方段核验（Node 侧读文件）+ 清理样例配置');
   {
-    const { readFileSync } = await import('node:fs');
-    const path = await import('node:path');
     const appData = process.env.APPDATA ?? '';
     const configPath = path.join(appData, 'ForgeStudio', 'engine', 'config.toml');
     const toml = readFileSync(configPath, 'utf8');
@@ -475,6 +517,8 @@ async function main() {
     assert(await evalJs(`!document.querySelector('[data-testid="compact-thread-btn"]')`), '压缩上下文按钮按渲染条件隐藏（无消息会话）');
     // 审阅入口渲染条件（Z2B-2）：同压缩——无消息会话不渲染
     assert(await evalJs(`!document.querySelector('[data-testid="review-btn"]')`), '代码审阅按钮按渲染条件隐藏（无消息会话）');
+    // 审阅面板（Z4 可选 1）：无审阅回合 → 不渲染（不虚报）
+    assert(await evalJs(`!document.querySelector('[data-testid="review-panel"]')`), '审阅面板按渲染条件隐藏（无审阅回合）');
     // 远程目标行渲染条件（Z3）：本任务 profile 无 SSH 目标 → 不渲染（不虚报）
     assert(await evalJs(`!document.querySelector('[data-testid="ssh-targets-row"]')`), '远程目标行按渲染条件隐藏（profile 无 SSH 目标）');
   }
@@ -515,6 +559,15 @@ async function main() {
       sel.dispatchEvent(new Event('change', { bubbles: true }));
     })()`);
     await waitFor(`!!document.querySelector('[data-testid="ssh-targets-row"]')`, 10000, 'FZ3B 任务远程目标行呈现');
+    // Z4 整合：SSH 目标并入设备区语义——远程设备卡呈现 + 设备区标题携带远程计数
+    assert(
+      await evalJs(`!!document.querySelector('[data-testid="ssh-target-device"]')`),
+      '远程设备卡（SSH）呈现（设备区默认展开）',
+    );
+    assert(
+      await evalJs(`(() => { return [...document.querySelectorAll('.fd-collapse__summary')].some(t => t.textContent.includes('设备') && t.textContent.includes('远程 1')); })()`),
+      '设备区标题携带远程计数（· 远程 1）',
+    );
     await evalJs(`document.querySelector('[data-testid="inspect-btn"]')?.click()`);
     await waitFor(`!document.querySelector('[data-testid="inspect-btn"]')?.textContent.includes('检查中')`, 60000, 'FZ3B 环境检查完成（含 SSH 目标探测）');
     await evalJs(`document.querySelector('[data-testid="build-btn"]')?.click()`);
@@ -538,16 +591,24 @@ async function main() {
     log('9d', 'FZ3B 硬件 GUI 闭环：板上构建 + 板上验收点亮 ✅');
   }
 
-  log('10', 'Browser.close 优雅退出');
+  // 10 优雅退出 + 恢复用户配置。
+  // 顺序关键：先派生 detached 恢复助手（walkthrough-restore.mjs，睡 6s 后按快照回填
+  // provider.env / settings.json），再 Browser.close——close 的 CDP 响应永不返回，
+  // 父进程在下方 await 挂起、事件循环排空后以 0 自然退出，其后代码不保证执行（实测）。
+  log('10', 'Browser.close 优雅退出（恢复助手已派生）');
+  spawnRestoreHelper();
   try {
     await send('Browser.close');
   } catch {}
   await sleep(3000);
+  // 走到这里说明事件循环尚存（连接已提前断开等场景）：照常收尾；恢复仍由助手兜底
   log('DONE', failed === 0 ? 'GUI 走查全部通过' : `有 ${failed} 项失败`);
   process.exit(failed === 0 ? 0 : 1);
 }
 
 main().catch((err) => {
   console.error('[gui] 走查失败:', err);
+  // 中途失败也要恢复用户配置（9b 清理可能已执行）
+  if (existsSync(SNAPSHOT_PATH)) spawnRestoreHelper();
   process.exit(1);
 });

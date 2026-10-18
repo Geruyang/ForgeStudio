@@ -50,6 +50,14 @@ export interface ErrorEventView {
   recoverable: boolean;
 }
 
+/** 一次代码审阅（review/start 发起的回合）的跟踪状态（Z4 可选 1 审阅面板数据源） */
+export interface ReviewTurnState {
+  turnId: string;
+  startedAt: string;
+  status: 'running' | 'success' | 'failure' | 'interrupted';
+  detail?: string;
+}
+
 export interface ApprovalView {
   approval: ApprovalRequestView;
   resolved: boolean;
@@ -65,6 +73,10 @@ export interface ConversationState {
   currentTurnId: string | null;
   turnStatus: 'running' | 'success' | 'failure' | 'interrupted' | null;
   turnDetail: string | null;
+  /** startReview 受理后的待归属标记：下一个 turn/started 归为审阅回合（用户发送会清除） */
+  reviewPending: boolean;
+  /** 本会话内发起的审阅回合（按时间序；重启恢复的会话不含——历史审阅仍在消息流中） */
+  reviews: ReviewTurnState[];
 }
 
 export function emptyConversation(): ConversationState {
@@ -77,6 +89,8 @@ export function emptyConversation(): ConversationState {
     currentTurnId: null,
     turnStatus: null,
     turnDetail: null,
+    reviewPending: false,
+    reviews: [],
   };
 }
 
@@ -141,16 +155,34 @@ export function applyEngineEventToConversation(
     case 'usage/updated':
       // token 用量由 store 层 AppState 持有（非会话消息流），此处直接跳过不进样本
       return state;
-    case 'turn/started':
-      return { ...state, currentTurnId: event.turnId, turnStatus: 'running', turnDetail: null };
-    case 'turn/completed':
+    case 'turn/started': {
+      const asReview = state.reviewPending;
+      return {
+        ...state,
+        currentTurnId: event.turnId,
+        turnStatus: 'running',
+        turnDetail: null,
+        reviewPending: false,
+        reviews: asReview
+          ? [...state.reviews, { turnId: event.turnId, startedAt: event.emittedAt, status: 'running' as const }]
+          : state.reviews,
+      };
+    }
+    case 'turn/completed': {
+      const reviews = state.reviews.map((r) =>
+        r.turnId === event.turnId && r.status === 'running'
+          ? { ...r, status: event.status, detail: event.detail }
+          : r,
+      );
       return {
         ...state,
         currentTurnId: event.turnId,
         turnStatus: event.status,
         turnDetail: event.detail ?? null,
+        reviews,
         messages: state.messages.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
       };
+    }
     case 'message/created': {
       if (event.role === 'user') {
         const text = event.text ?? '';

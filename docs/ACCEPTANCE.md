@@ -382,3 +382,26 @@
   `turn/completed` 无顺序保证——事件乱序属适配层真实缺陷（非纯测试时序）
 - 修复：同步落盘（mkdirSync/writeFileSync）+ 测试补"patch/applied 先于 turn/completed"顺序断言
 - 验证：patches 用例连续 20 轮单跑全绿；engine-adapter 62/62；全量回归 + typecheck 0 错误
+
+### A-14-SSH 深化：FZ3B 多文件 C 工程 + 板上单元测试（2026-10-19，实机）
+- 版本：ForgeStudio v22 代码态；动作：`FZ3B_PASSWORD=*** npx vitest run test/ssh-fz3b-unit.live.test.ts`
+- 实际：**通过**——板上 make 多文件构建（ringbuf.c + minunit.h + test_ringbuf.c，aarch64 gcc，
+  产物 sha256 4b934bd2…）→ 板上运行单元测试（8 用例全 PASS）→ stdoutMustContain 强制
+  UNIT_TESTS_PASSED / RUN=8 / FAILED=0 / BOARD_HOST / KERNEL(xilinx-v)，stdoutMustNotContain
+  拒 FAIL: → B 级证据落库、验收项点亮
+- 覆盖：Z4 可选 3（多文件工程 + 板上单元测试框架）；fixture 标注"实机"
+
+### v22 安装态验收（2026-10-19）
+- 版本：ForgeStudio v22（NSIS，SHA-256 8583442814815E59C0451AA2426FCA7305C31C0EA9F2B3ECC610FB4D0F83EBC3，未签名）
+- 静默安装 exit=0（实测安装位置 **C:\Program Files\ForgeStudio**，per-machine 上下文——
+  沿用既有注册升级；数据目录 %APPDATA%\ForgeStudio 不变，任务/会话/凭据全保留）；
+  asar 标记核验（review-panel / 远程设备 / fd-runner 闭包）
+- **安装态冒烟 13/13**（真实构建/验收/幂等/过期/导出/MCP 桥 7 工具握手）
+- **GUI 走查 exit=0 / 39 断言全绿**（v21 为 36）：新增审阅面板渲染条件（无审阅不渲染）、
+  远程设备卡呈现（设备区默认展开）、设备区标题远程计数；FZ3B 硬件 GUI 闭环 9d 真实板卡复验通过
+- 走查工具链缺陷修复（同轮实测暴露并修复）：①9b 样例清理曾误删 provider.env 真实 DEEPSEEK key
+  → 2b 快照落盘 + detached 恢复助手（walkthrough-restore.mjs）兜底，终版实测恢复生效；
+  ②Browser.close 后父进程代码不可依赖（CDP 响应不返回→事件循环排空自然退出）→ 恢复动作
+  移至 close 前派生的独立进程
+- 走查环境注记：应用需以 `--remote-debugging-port` 直启（Node spawn 方式；走查端口避开
+  僵尸 socket 残留），CDP 健康以 node fetch /json/version 验证为准（curl 受代理环境影响误报）

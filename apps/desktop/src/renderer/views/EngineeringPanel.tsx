@@ -33,6 +33,8 @@ export function EngineeringPanel() {
   const setTaskSetupOpen = useAppStore((s) => s.setTaskSetupOpen);
 
   const task = tasks.find((t) => t.id === activeTaskId) ?? null;
+  const profileSummaries = useAppStore((s) => s.profileSummaries);
+  const sshTargetCount = task ? (profileSummaries.find((p) => p.id === task.profileId)?.sshTargets?.length ?? 0) : 0;
 
   if (!task) {
     return (
@@ -132,18 +134,20 @@ export function EngineeringPanel() {
         <EvidenceSnapshotCard task={task} />
       </section>
 
-      <SshTargetsRow profileId={task.profileId} />
-
-      {/* 功能分类叠放：设备/操作历史为低频区块，默认收起（标题携带计数，需要时展开） */}
+      {/* 功能分类叠放：设备/操作历史为低频区块，默认收起（标题携带计数，需要时展开）；
+          SSH 远程目标并入设备区语义（Z4 整合）：远程任务是本任务的"目标设备"，有则默认展开 */}
       <section className="panel__section">
         <Collapse
           summary={
             <span className="panel__section-title" style={{ display: 'inline' }}>
               设备{boundCount > 0 ? `（已绑定 ${boundCount}）` : ''}
+              {sshTargetCount > 0 ? ` · 远程 ${sshTargetCount}` : ''}
             </span>
           }
+          defaultOpen={sshTargetCount > 0}
         >
-          <DeviceSection task={task} devices={devices} />
+          <SshTargetsRow profileId={task.profileId} />
+          <DeviceSection task={task} devices={devices} hasSshTargets={sshTargetCount > 0} />
         </Collapse>
       </section>
 
@@ -176,12 +180,12 @@ export function EngineeringPanel() {
   );
 }
 
-/** 远程 SSH 目标行（Z3）：profile 带 ssh 命令时呈现目标清单（host:port · 用户 · 密码变量名）。
+/** 远程 SSH 设备行（Z3 呈现 + Z4 整合）：并入设备区语义——每个 SSH 目标一张设备卡，
+ *  凭据徽标即该远程设备的"授权"状态（密码经产品内凭据管理注入）。
  *  可达性经「环境检查」探测（inspect 输出 sshTargets），此处为静态信息呈现。 */
 function SshTargetsRow({ profileId }: { profileId: string }) {
   const profiles = useAppStore((s) => s.profileSummaries);
   const credentialNames = useAppStore((s) => s.sshCredentialNames);
-  const refreshSshCredentials = useAppStore((s) => s.refreshSshCredentials);
   const setSshCredential = useAppStore((s) => s.setSshCredential);
   const clearSshCredential = useAppStore((s) => s.clearSshCredential);
   const [editingEnv, setEditingEnv] = useState<string | null>(null);
@@ -205,21 +209,21 @@ function SshTargetsRow({ profileId }: { profileId: string }) {
   };
 
   return (
-    <div className="device-row" data-testid="ssh-targets-row">
-      <div className="device-row__head">
-        <span className="device-row__name">远程目标（SSH 板卡）</span>
-      </div>
-      <div className="device-row__meta" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-        {targets.map((t) => {
-          const configured = credentialNames.includes(t.passwordEnv);
-          return (
-            <span key={`${t.host}:${t.port}:${t.username}`} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-              <span className="fd-code">{t.host}:{t.port}</span> · {t.username} · 变量 <span className="fd-code">{t.passwordEnv}</span>
-              {configured ? (
-                <Badge tone="ok">密码已配置</Badge>
-              ) : (
-                <Badge tone="warn">密码未配置</Badge>
-              )}
+    <div data-testid="ssh-targets-row">
+      {targets.map((t) => {
+        const configured = credentialNames.includes(t.passwordEnv);
+        return (
+          <div key={`${t.host}:${t.port}:${t.username}`} className="device-row" data-testid="ssh-target-device">
+            <div className="device-row__head">
+              <span className="device-row__name">远程设备（SSH 板卡）</span>
+              {configured ? <Badge tone="ok">密码已配置</Badge> : <Badge tone="warn">密码未配置</Badge>}
+              <Badge tone="neutral">SSH</Badge>
+            </div>
+            <div className="device-row__meta">
+              <span className="fd-code">{t.host}:{t.port}</span> · 用户 {t.username} · 密码变量{' '}
+              <span className="fd-code">{t.passwordEnv}</span>
+            </div>
+            <div className="panel__task-actions">
               {editingEnv === t.passwordEnv ? (
                 <input
                   autoFocus
@@ -236,7 +240,7 @@ function SshTargetsRow({ profileId }: { profileId: string }) {
                   }}
                   onBlur={() => void submit(t.passwordEnv)}
                   disabled={busy}
-                  style={{ fontSize: 12, padding: '2px 6px', width: 120 }}
+                  style={{ fontSize: 12, padding: '2px 6px', width: 140 }}
                 />
               ) : (
                 <button
@@ -261,14 +265,14 @@ function SshTargetsRow({ profileId }: { profileId: string }) {
                   清除
                 </button>
               )}
-            </span>
-          );
-        })}
-      </div>
-      <div className="device-row__meta" style={{ fontSize: 11 }}>
-        构建与验收在该板卡上执行（输入上传至板上任务目录，产物取回本地证据管线）；密码保存于本机数据目录，
-        重启应用后注入连接；可达性经「环境检查」探测。
-      </div>
+            </div>
+            <div className="device-row__meta" style={{ fontSize: 11 }}>
+              构建与验收在该板卡上执行（输入上传至板上任务目录，产物取回本地证据管线）；
+              密码保存于本机数据目录，重启应用后注入连接；可达性经「环境检查」探测。
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

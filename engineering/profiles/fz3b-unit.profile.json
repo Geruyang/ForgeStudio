@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "fz3b-unit",
+  "revision": 1,
+  "title": "FZ3B 多文件 C 工程（板上构建 + 板上单元测试验收，实机）",
+  "kind": "software",
+  "build": {
+    "exe": "make",
+    "args": [],
+    "timeoutMs": 180000,
+    "ssh": {
+      "host": "169.254.220.254",
+      "port": 22,
+      "username": "ubuntu",
+      "passwordEnv": "FZ3B_PASSWORD",
+      "remoteRoot": "/tmp/forgedesk"
+    }
+  },
+  "artifactsGlob": ["fzunit"],
+  "verifiers": [
+    {
+      "verifierId": "fz3b-unittest",
+      "title": "板上单元测试（ringbuf 8 用例 + 板卡身份）",
+      "command": {
+        "exe": "./fzunit",
+        "args": [],
+        "timeoutMs": 60000,
+        "ssh": {
+          "host": "169.254.220.254",
+          "port": 22,
+          "username": "ubuntu",
+          "passwordEnv": "FZ3B_PASSWORD",
+          "remoteRoot": "/tmp/forgedesk"
+        }
+      },
+      "passExitCode": 0,
+      "stdoutMustContain": ["UNIT_TESTS_PASSED", "RUN=8", "FAILED=0", "BOARD_HOST=", "KERNEL=", "xilinx-v"],
+      "stdoutMustNotContain": ["FAIL:"],
+      "outputLimitBytes": 1048576
+    }
+  ],
+  "inputIncludes": ["package.json", "Makefile", "src/*", "test/*"],
+  "inputExcludes": ["fzunit"],
+  "buildFromSnapshot": true
+}

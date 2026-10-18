@@ -9,7 +9,7 @@ import { useAppStore } from '../../store/context';
 import { Badge, StatusChip } from '../common/Badge';
 import { formatClock } from '../../lib/format';
 
-export function DeviceSection({ task, devices }: { task: TaskOverview; devices: EnumeratedDevice[] }) {
+export function DeviceSection({ task, devices, hasSshTargets = false }: { task: TaskOverview; devices: EnumeratedDevice[]; hasSshTargets?: boolean }) {
   const diagnostics = useAppStore((s) => s.diagnostics);
   const serialLogs = useAppStore((s) => s.serialLogs);
   const artifacts = task.artifacts;
@@ -33,12 +33,20 @@ export function DeviceSection({ task, devices }: { task: TaskOverview; devices: 
   return (
     <div className="acceptance" data-testid="device-section">
       {bindings.length === 0 && devices.length === 0 && (
-        <div className="device-row">
+        <div className="device-row" data-testid="device-empty">
           <div className="device-row__head">
-            <span className="device-row__name">设备不可用</span>
-            <Badge tone="warn">未检测到设备</Badge>
+            <span className="device-row__name">{hasSshTargets ? '本地设备（无）' : '设备不可用'}</span>
+            {hasSshTargets ? (
+              <Badge tone="neutral">本任务经 SSH 远程设备执行</Badge>
+            ) : (
+              <Badge tone="warn">未检测到设备</Badge>
+            )}
           </div>
-          <div className="device-row__meta">请连接目标板卡后刷新；软件任务不需要设备。</div>
+          <div className="device-row__meta">
+            {hasSshTargets
+              ? '本任务的构建与验收在上方远程设备（SSH 板卡）上执行，无需连接本地 USB 设备。'
+              : '请连接目标板卡后刷新；软件任务不需要设备。'}
+          </div>
         </div>
       )}
       {bindings.map(({ bindingId }) => {

@@ -51,9 +51,10 @@
 ## 产品数据目录约定（隔离基线）
 
 - 开发态：`<repo>/.runtime/`（数据/引擎目录，git 忽略）
-- 安装态：程序 `%LOCALAPPDATA%\Programs\ForgeDesk\`（per-user NSIS，免管理员）；数据 `%APPDATA%\ForgeDesk\`
-  （主进程 ready 前显式规范化，实测落位含 runner-discovery.json/forgedesk.db/engine/evidence/profiles）；
-  vendored CLI 在安装目录下 `resources\engine\codex`
+- 安装态（v22 实测，2026-10-19）：程序 **`C:\Program Files\ForgeStudio\`（per-machine NSIS 上下文，
+  沿用既有注册——早期版本为 per-user %LOCALAPPDATA%\Programs，环境迁移中注册表上下文已变）**；
+  数据 `%APPDATA%\ForgeStudio\`（主进程 ready 前显式规范化，实测落位含 runner-discovery.json/
+  forgedesk.db/engine/evidence/profiles）；vendored CLI 在安装目录下 `resources\engine\codex`
 - 引擎 CODEX_HOME：`<数据目录>\engine`（不使用、不读取 `%USERPROFILE%\.codex`）
 - 已安装版本实证（2026-10-14 晚，A-10）：`ForgeDesk Setup 0.1.0.exe` SHA-256
   `6FFD8365835CD8E8DB346B8B9155F732FAE82EE7CD195BE0B56F5C972F6AE6AB`，未签名；

@@ -359,3 +359,39 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
 1. Kimi key 恢复后同法补 live（框架就绪）；Z4-B2/B3 待用户提供证书/授权。
 2. Z4 可选增强（完整审阅面板 UI、设备授权卡整合、FZ3B 更大工程）按需排期；
    任一项交付照例走打包验证关口（v22）。
+
+## v22 阶段交付（2026-10-19，ZCode）——Z4 可选增强 1–3 全部完成
+
+- [x] **Z4 可选 1：完整审阅面板 UI**：协议评估确认（vendored codex 0.162.1 无独立审阅注释
+  结构与 decision 服务端请求，不虚构能力）——面板以"审阅回合结构化呈现"实现：ReviewPanel
+  （状态徽标/报告正文 >4000 折叠/补丁卡/工具计数）；startReview 乐观归属标记（reviewPending →
+  下一个 turn/started 归为审阅回合；用户发送清除，桥失败清除）；渲染条件（live+有消息+非回合中）
+  保留。重启恢复的历史会话不含审阅标记——面板如实提示（报告仍在消息流）。测试 +7。
+- [x] **Z4 可选 2：SSH 目标并入设备区语义**：远程目标从独立行升级为设备区内「远程设备（SSH 板卡）」
+  设备卡（凭据徽标=授权语义，逐目标成卡）；设备区标题携带远程计数、有远程目标默认展开；
+  本地设备空态区分"经 SSH 远程设备执行"与"设备不可用"（不再误导）。测试 3 例更新。
+- [x] **Z4 可选 3：FZ3B 多文件 C 工程 + 板上单元测试框架**：fz3b-unit 样例（ringbuf 模块 +
+  minunit 风格框架 + 8 用例）+ profile（fz3b-unittest：RUN=8/FAILED=0/UNIT_TESTS_PASSED/
+  板卡身份 stdoutMustContain 强制）+ live 实机验收（板上 make 多文件构建→板上单测→B 级证据，通过）。
+- [x] **v22 验证关口**：**SHA-256 `8583442814815E59C0451AA2426FCA7305C31C0EA9F2B3ECC610FB4D0F83EBC3`**
+  （未签名，release-final 留存）→ 静默安装（**实测安装位置 C:\Program Files\ForgeStudio，per-machine
+  上下文——沿用既有注册，ENVIRONMENT 已修正记录**）→ **安装态冒烟 13/13** → **GUI 走查 exit=0 /
+  39 断言全绿**（新增：审阅面板渲染条件、远程设备卡、设备区远程计数；FZ3B 硬件 GUI 闭环 9d 复验）。
+- [x] **走查脚本双缺陷修复（实测暴露）**：①9b 清样例曾连带删除 provider.env 里真实 DEEPSEEK key
+  （脚本假设 DEEPSEEK 条目是自己的样例——破坏性副作用）；②Browser.close 后父进程代码不可依赖
+  （close 的 CDP 响应永不返回 → await 挂起 → 事件循环排空 → 自然退出 0，后续代码/日志被截断）。
+  修复：2b 快照落盘 + close 前派生 detached 恢复助手（scripts/walkthrough-restore.mjs，幂等回填
+  provider.env/settings.json）+ 失败路径同样兜底；终版走查实测恢复生效（key 在、快照自清理）。
+- 测试基线：contracts 34 / runner 157+4skip（+fz3b-unit live skip）/ mcp 36 / adapter 62 /
+  desktop 95+6skip；typecheck 0。
+
+## 下一步
+
+1. Kimi key 恢复后同法补 live（用户暂缓中）；Z4-B2 签名证书 / Z4-B3 管理员沙箱授权待用户。
+2. Z4-A1/A2（实机 STM32 / 第二用户）按用户指示暂缓；远程实验室方向长期评估不排期。
+
+### v22 发布三元组（BUILD.md 规范）
+
+- git commit：`509e926`（应用代码在打包后未变——打包后仅改走查脚本与文档，不随包分发）
+- 安装包 SHA-256：`8583442814815E59C0451AA2426FCA7305C31C0EA9F2B3ECC610FB4D0F83EBC3`
+- package.json version：`0.1.0`（NSIS；未签名，NotSigned 实测）
