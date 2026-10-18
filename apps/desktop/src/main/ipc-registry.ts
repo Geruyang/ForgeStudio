@@ -199,7 +199,7 @@ export function registerIpc(ctx: IpcContext): void {
     if (!allowed) throw new Error('项目未登记，拒绝打开终端');
     // 外部终端在产品受控执行边界之外（任务书 §8.2）
     const { spawn } = await import('node:child_process');
-    spawn('cmd.exe', ['/d', '/s', '/c', 'start', '""', 'cmd', '/k', `cd /d "${projectRoot}"`], {
+    spawn('cmd.exe', ['/d', '/s', '/c', 'start', '""', 'cmd', '/k', `cd /d "${projectRoot.replace(/"/g, '')}"`], {
       detached: true,
       stdio: 'ignore',
       windowsHide: false,

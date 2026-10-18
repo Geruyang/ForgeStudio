@@ -13,6 +13,7 @@ const DEFAULTS: AppSettings = {
 };
 
 export class SettingsStore {
+  #queue: Promise<unknown> = Promise.resolve();
   readonly #file: string;
   #cache: AppSettings | null = null;
 
@@ -32,11 +33,16 @@ export class SettingsStore {
   }
 
   async patch(p: Partial<AppSettings>): Promise<AppSettings> {
-    const cur = await this.load();
-    const next: AppSettings = { ...cur, ...p };
-    await this.#write(next);
-    this.#cache = next;
-    return next;
+    // 串行化 patch（读-改-写链）：并发调用避免交错覆盖丢更新
+    const job = this.#queue.then(async () => {
+      const cur = await this.load();
+      const next: AppSettings = { ...cur, ...p };
+      await this.#write(next);
+      this.#cache = next;
+      return next;
+    });
+    this.#queue = job.catch(() => undefined);
+    return job;
   }
 
   /** 原子写：临时文件 + rename，避免半截 JSON */

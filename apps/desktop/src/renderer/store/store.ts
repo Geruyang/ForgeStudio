@@ -1465,6 +1465,8 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
         }
         if (event.type === 'session/compacted') {
           term.push({ at: nowIso(), source: '会话', text: '上下文压缩完成（历史消息已摘要化）', isError: false });
+          // 压缩改变 thread 服务端状态（消息数/活动时间）——刷新会话列表
+          void get().refreshThreads();
         }
         if (event.type === 'turn/completed') {
           patch.turnRunning = false;

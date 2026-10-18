@@ -1,12 +1,22 @@
+import { useState } from 'react';
 import type { ToolCallView, UiMessage } from '../../lib/events';
 import { ToolCard } from './ToolCard';
 import { PlanCard } from './PlanCard';
 import { PatchCard } from './PatchCard';
 
+/** 超过此长度的非流式文本折叠渲染（防巨型输出撑爆 DOM/卡顿；流式期间不折叠） */
+const LONG_TEXT_FOLD = 4000;
+const FOLD_PREVIEW = 2000;
+
 export function MessageItem({ message }: { message: UiMessage }) {
   const isUser = message.role === 'user';
   const planCalls = message.toolCalls.filter((c) => /(^|[^a-z])plan/i.test(c.tool));
   const planCallIds = new Set(planCalls.map((c) => c.callId));
+  const [expanded, setExpanded] = useState(false);
+  const foldable = !message.streaming && !isUser && message.text.length > LONG_TEXT_FOLD;
+  const shownText = foldable && !expanded
+    ? message.text.slice(0, FOLD_PREVIEW)
+    : message.text;
   return (
     <div className={`msg msg--${message.role}`} data-role={message.role}>
       <div className="msg__role">
@@ -15,7 +25,18 @@ export function MessageItem({ message }: { message: UiMessage }) {
       </div>
       {(message.text || !message.toolCalls.length) && (
         <div className={`msg__body${message.streaming ? ' msg__body--streaming' : ''}`}>
-          {message.text || (message.streaming ? '' : '（无文本输出）')}
+          {shownText || (message.streaming ? '' : '（无文本输出）')}
+          {foldable && !expanded && (
+            <button
+              type="button"
+              className="fd-btn fd-btn--ghost fd-btn--small"
+              style={{ display: 'block', marginTop: 6 }}
+              data-testid="msg-expand-btn"
+              onClick={() => setExpanded(true)}
+            >
+              展开全部（共 {message.text.length} 字符，已省略 {message.text.length - FOLD_PREVIEW}）
+            </button>
+          )}
         </div>
       )}
       {message.reasoning && message.reasoning.trim().length > 0 && <ReasoningBlock text={message.reasoning} />}
