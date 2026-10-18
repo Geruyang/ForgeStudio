@@ -290,3 +290,20 @@ desktop 79+6skip（+更新检查 7）；typecheck 0 错误；安装态 13 步冒
 - [x] **v18 验证关口**：**SHA-256 `C903EF4A348E89FB7122533FE8AC846B99FB99A4ED1B5C2EDF01B15F9F45720E`**
   → 静默安装 → 冒烟 13/13 → 走查 exit=0/36 断言（含 FZ3B 硬件 GUI 闭环 9d）。
 - DeepSeek/Kimi live：provider.env 无对应 key（用户新增的是智谱额度），如实跳过。
+
+## 3 轮 Bug 筛查（2026-10-18，ZCode）——5 项实际缺陷修复，全门复验绿
+
+**R1 静态扫描**（typecheck 严格/危险模式 grep/泄漏模式）：
+1. B级快照复核产物自污染（本地 B 级构建产物写入快照目录，未排除的 profile 复核时把产物计入
+   输入清单 → 误报 evidence_stale）——复核快照目录时产物 glob 防御性并入 inputExcludes
+2. quitAndInstall 被 will-quit 优雅收尾拦截（app.exit 抢先，安装器不启动）
+
+**R2 代码审查**（R1 后新增模块逐文件）：
+3. quitAndInstall 标记循环依赖（打包后 require('./index.ts') 不可用 → 修复 2 实际未生效）——
+   独立共享状态模块 update-install-flag
+4. SSH connect 失败 socket 泄漏（句柄悬挂）
+5. SSH exec 超时悬挂（OpenSSH 7.6 close 延迟缺陷影响超时路径）——timeoutMs+5s 硬兜底
+
+**R3 运行时审计**（v19 含全部修复：冒烟 13/13 + 走查 36 断言 + FZ3B 硬件闭环 +
+fz3b-make/fz3b-svs 双 live 实机 + B级快照回归——全绿）
+正式包 **v19 SHA-256 `8AF8511A9E373887F788301D99D70A3DD4B33ACB0E6678CE3A22AB5A62F5BAC8`**（未签名）
