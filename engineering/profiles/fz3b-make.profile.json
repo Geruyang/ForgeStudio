@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "fz3b-make",
+  "revision": 1,
+  "title": "FZ3B 板上 make 工程（aarch64 原生构建 + 板上自检验收，实机）",
+  "kind": "software",
+  "build": {
+    "exe": "make",
+    "args": [],
+    "timeoutMs": 180000,
+    "ssh": {
+      "host": "169.254.220.254",
+      "port": 22,
+      "username": "ubuntu",
+      "passwordEnv": "FZ3B_PASSWORD",
+      "remoteRoot": "/tmp/forgedesk"
+    }
+  },
+  "artifactsGlob": ["fzprobe"],
+  "verifiers": [
+    {
+      "verifierId": "fz3b-selftest",
+      "title": "板上自检（hostname/内核/CPU 核数）",
+      "command": {
+        "exe": "./fzprobe",
+        "args": [],
+        "timeoutMs": 60000,
+        "ssh": {
+          "host": "169.254.220.254",
+          "port": 22,
+          "username": "ubuntu",
+          "passwordEnv": "FZ3B_PASSWORD",
+          "remoteRoot": "/tmp/forgedesk"
+        }
+      },
+      "passExitCode": 0,
+      "stdoutMustContain": ["TESTS_PASSED", "BOARD_HOST=", "KERNEL=", "xilinx-v"],
+      "stdoutMustNotContain": [],
+      "outputLimitBytes": 1048576
+    }
+  ],
+  "inputIncludes": ["package.json", "Makefile", "src/main.c"],
+  "inputExcludes": ["fzprobe"],
+  "buildFromSnapshot": true
+}

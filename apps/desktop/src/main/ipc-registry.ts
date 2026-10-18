@@ -78,6 +78,10 @@ export function registerIpc(ctx: IpcContext): void {
     if (!ctx.engine.adapter) throw new Error('引擎未启动');
     return ctx.engine.adapter.steer(text);
   });
+  register(IPC.engine.review, (e) => {
+    if (!ctx.engine.adapter) throw new Error('代码审阅需要引擎已启动');
+    return ctx.engine.adapter.startReview();
+  });
   register(IPC.engine.interrupt, (e) => {
     if (!ctx.engine.adapter) throw new Error('引擎未启动');
     return ctx.engine.adapter.interrupt();

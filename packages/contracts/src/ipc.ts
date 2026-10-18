@@ -36,6 +36,8 @@ export const IPC = {
     send: 'engine:send',
     steer: 'engine:steer',
     interrupt: 'engine:interrupt',
+    /** 代码审阅（Z2B-2）：当前线程 inline 启动 review/start（uncommittedChanges）；过程走现有会话流 */
+    review: 'engine:review',
     approve: 'engine:approve',
     models: 'engine:models',
     authStatus: 'engine:auth-status',
@@ -247,6 +249,8 @@ export interface ForgeDeskBridge {
     send(text: string): Promise<OpResult<{ turnId: string }>>;
     steer(text: string): Promise<OpResult<SteerResult>>;
     interrupt(): Promise<OpResult<void>>;
+    /** 代码审阅：需引擎就绪且存在当前会话；审阅项以普通会话事件回流 */
+    review(): Promise<OpResult<void>>;
     approve(requestId: string, decision: ApprovalDecision): Promise<OpResult<void>>;
     models(): Promise<OpResult<EngineModelInfo[]>>;
     authStatus(): Promise<OpResult<AuthStatusInfo>>;

@@ -190,6 +190,8 @@ export interface AppActions {
   deleteThread(threadId: string): Promise<void>;
   /** 上下文压缩（Z1-5）：仅当前会话 + 引擎就绪；完成以 session/compacted 事件为准 */
   compactThread(): Promise<void>;
+  /** 代码审阅（Z2B-2）：当前线程 inline 审阅未提交改动；过程走现有会话流 */
+  startReview(): Promise<void>;
   setDraft(text: string): void;
   sendDraft(): Promise<boolean>;
   steerDraft(): Promise<boolean>;
@@ -827,6 +829,18 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
         }
         const r = await bridge.session.compactThread(threadId);
         if (!r.ok) failureToast(r.failure); // 完成（session/compacted）走事件流提示
+      },
+      async startReview() {
+        if (!get().liveThreadId) {
+          failureToast({ kind: 'connection_failure', message: '无进行中的会话，无法启动代码审阅', occurredAt: nowIso() });
+          return;
+        }
+        if (get().turnRunning) {
+          failureToast({ kind: 'permission_denied', message: '回合进行中，请等待结束后再审阅', occurredAt: nowIso() });
+          return;
+        }
+        const r = await bridge.engine.review();
+        if (!r.ok) failureToast(r.failure); // 审阅过程以普通会话事件回流
       },
 
       // ---- 输入 / 回合 ----

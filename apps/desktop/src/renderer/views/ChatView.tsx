@@ -24,6 +24,7 @@ export function ChatView() {
   const setTaskSetupOpen = useAppStore((s) => s.setTaskSetupOpen);
   const tokenUsage = useAppStore((s) => s.tokenUsage);
   const compactThread = useAppStore((s) => s.compactThread);
+  const startReview = useAppStore((s) => s.startReview);
   const turnRunning = useAppStore((s) => s.turnRunning);
   const streamRef = useRef<HTMLDivElement | null>(null);
   const msgCount = conversation.messages.length;
@@ -49,6 +50,14 @@ export function ChatView() {
       {tokenUsage && <TokenUsageBar usage={tokenUsage} />}
       {liveThreadId && conversation.messages.length > 0 && !turnRunning && (
         <div style={{ margin: '4px 22px 0', textAlign: 'right' }}>
+          <button
+            type="button"
+            className="fd-btn fd-btn--ghost fd-btn--small"
+            onClick={() => void startReview()}
+            data-testid="review-btn"
+          >
+            代码审阅
+          </button>
           <button
             type="button"
             className="fd-btn fd-btn--ghost fd-btn--small"

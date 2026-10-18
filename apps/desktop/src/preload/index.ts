@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('forgedesk', {
     send: (text: string) => invoke(IPC.engine.send, text),
     steer: (text: string) => invoke(IPC.engine.steer, text),
     interrupt: () => invoke(IPC.engine.interrupt),
+    review: () => invoke(IPC.engine.review),
     approve: (requestId: string, decision: 'accept' | 'acceptForSession' | 'decline' | 'cancel') =>
       invoke(IPC.engine.approve, requestId, decision),
     models: () => invoke(IPC.engine.models),

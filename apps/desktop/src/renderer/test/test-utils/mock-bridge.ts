@@ -60,6 +60,7 @@ export function createMockBridge(overrides: BridgeOverrides = {}): MockBridge {
     send: async () => unconfigured(),
     steer: async () => unconfigured(),
     interrupt: async () => unconfigured(),
+    review: async () => unconfigured(),
     approve: async () => unconfigured(),
     models: async () => unconfigured(),
     authStatus: async () => unconfigured(),

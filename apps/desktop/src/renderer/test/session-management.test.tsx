@@ -153,3 +153,20 @@ describe('Sidebar：搜索 / 重命名 / 删除交互', () => {
     expect(screen.queryByTestId('thread-delete-confirm')).not.toBeInTheDocument();
   });
 });
+
+describe('store：代码审阅（Z2B-2 入口）', () => {
+  it('无会话 → 不调桥；回合进行中 → 不调桥；就绪 → engine.review 调用', async () => {
+    const setup = makeSetup({ engine: { review: async () => ok(undefined) } });
+    const review = vi.spyOn(setup.bridge.engine, 'review');
+    await setup.store.getState().startReview();
+    expect(review).not.toHaveBeenCalled();
+
+    setup.store.setState({ liveThreadId: 'th-1', turnRunning: true });
+    await setup.store.getState().startReview();
+    expect(review).not.toHaveBeenCalled();
+
+    setup.store.setState({ turnRunning: false });
+    await setup.store.getState().startReview();
+    expect(review).toHaveBeenCalledTimes(1);
+  });
+});
