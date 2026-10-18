@@ -19,7 +19,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test --experimental-strip-types test/ 2>/dev/null || node --test test/*.mjs"
+    "test": "vitest run --root ."
   },
   "dependencies": {
     "zod": "3.25.76"

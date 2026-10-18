@@ -335,3 +335,27 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
 
 **v21 全门复验**：冒烟 13/13 + 走查 exit=0/36 断言 + FZ3B 硬件 GUI 闭环 ✅
 正式包 **v21 SHA-256 `0EE357B7C5A6367C6CC2AC1AEFCA047BE8C5B8CFBAAEA278279A88F36D614484`**（未签名，release-final 留存含 latest.yml/blockmap）
+
+## Z4 清单推进（2026-10-18 晚，ZCode；用户提供 DeepSeek key，Kimi 指示暂缓）
+
+- [x] **Z4-B1 DeepSeek 模型列表 live**：key 落 provider.env（产品等效路径）→ live 测试
+  **deepseek 2 模型（deepseek-flash、deepseek-v4-pro）非空/去重/排序全绿**；同轮方舟 36 /
+  智谱 3 / 千问 176 复验过；moonshot 无 key 自动跳过（暂缓，skip≠通过）。附加推理 sanity
+  （chat/completions 51 token 正常）。附带修正 deepseek/zhipu modelHint 为实测口径。
+- [x] **D-4b 根因修复（非单纯复查）**：`#emitPatchApplied` 异步落盘 fire-and-forget，
+  `patch/applied` 可能晚于同回合 `turn/completed` 投影（适配层事件顺序真实缺陷）。
+  改同步落盘保序 + 测试顺序断言；**patches 用例 20 连跑全绿**，adapter 62/62。
+- [x] **测试链修复（静默虚报风险）**：contracts `npm test` 脚本走 `node --test` 路径跑出
+  0 用例仍报成功（根链路 contracts 从未实际执行）——改为与其他工作区一致的 vitest；
+  顺带确认 D-4a（reporter=basic）已在早前版本修复，全链复验。
+- [x] **环境残留清理**：`apps/desktop/release/win-unpacked/` 删除成功（句柄已释放）；
+  `release/`+`release-final/` 哈希复核均 v21（0EE357B7…D4484）。
+- 测试基线（全量复验）：contracts 34 / runner 157+3skip / mcp 36 / adapter 62 /
+  desktop 88+6skip；typecheck 0 错误。
+- 剩余外部依赖：Z4-B2 签名证书、Z4-B3 管理员沙箱授权、Kimi key（暂缓）；Z4-A1/A2 用户暂缓。
+
+## 下一步
+
+1. Kimi key 恢复后同法补 live（框架就绪）；Z4-B2/B3 待用户提供证书/授权。
+2. Z4 可选增强（完整审阅面板 UI、设备授权卡整合、FZ3B 更大工程）按需排期；
+   任一项交付照例走打包验证关口（v22）。

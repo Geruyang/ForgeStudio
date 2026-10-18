@@ -363,3 +363,22 @@
   （TESTS_PASSED + BOARD_HOST=EdgeBoard + KERNEL=4.14.0-xilinx-v2018.3 + CORES=4）→
   产物自板上取回（sha256 cad2dc66…）→ B 级证据落库、验收项点亮
 - 同时覆盖 **B 级快照 × SSH 组合**（buildFromSnapshot + ssh 命令）：上传内容为快照文件
+
+### Z4-B1 DeepSeek 模型列表 live（2026-10-18，用户提供 key）
+- 版本：ForgeStudio v21 代码态（live 测试直连厂商端点，与包版本无关）
+- 动作：key 写入安装版引擎目录 provider.env（与产品"设置页粘贴 key"等效落点）→
+  `FD_LIVE_ENGINE_HOME=%APPDATA%\ForgeStudio\engine npx vitest run src/main/test/provider-models.live.test.ts`
+- 实际：**通过**——[live] deepseek: 2 个模型（deepseek-flash、deepseek-v4-pro），非空/去重/排序
+  断言全绿；同轮复验方舟 36（含 Agent Plan 404 回落）/ 智谱 3 / 千问 176；Kimi（moonshot）无 key
+  自动跳过（用户指示暂缓，skip ≠ 通过）
+- 附加 sanity：同 key 经 `POST /v1/chat/completions`（deepseek-flash，max_tokens=16）真实推理返回正常
+  （51 token）——证明 key 列表与推理均可用（产品内对话闭环曾于 D16/D17 验证，本次不重复）
+- 附带修正：MODEL_PROVIDERS 中 deepseek/zhipu 两处 modelHint 更新为 live 实测口径
+  （deepseek-flash/deepseek-v4-pro；glm-5.3/glm-5.3-flash/glm-5-turbo）
+- 级别：T1 余项（Z2B-4 / Z4-B1 的 DeepSeek 半项；Kimi 待用户恢复后同法补测）
+
+### D-4b 修复回归（2026-10-18）
+- 根因：`#emitPatchApplied` 异步落盘后发 `patch/applied`（fire-and-forget），与同步投影的
+  `turn/completed` 无顺序保证——事件乱序属适配层真实缺陷（非纯测试时序）
+- 修复：同步落盘（mkdirSync/writeFileSync）+ 测试补"patch/applied 先于 turn/completed"顺序断言
+- 验证：patches 用例连续 20 轮单跑全绿；engine-adapter 62/62；全量回归 + typecheck 0 错误

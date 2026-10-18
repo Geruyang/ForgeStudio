@@ -212,7 +212,7 @@ export const MODEL_PROVIDERS: readonly ModelProviderDescriptor[] = [
     // 见 docs.bigmodel.cn/cn/coding-plan/tool/codex）
     baseUrl: 'https://open.bigmodel.cn/api/v1',
     envKey: 'ZHIPU_API_KEY',
-    modelHint: '如 glm-4.6 / glm-4.5（Coding Plan 套餐内模型）',
+    modelHint: '如 glm-5.3 / glm-5.3-flash / glm-5-turbo（Coding Plan 套餐内模型，GET /models 实测返回为准）',
     consoleUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
     officialLogin: false,
     planNote: '支持 GLM Coding Plan 包月套餐（智谱开放平台开通）；开通后使用套餐 API key。',
@@ -242,7 +242,7 @@ export const MODEL_PROVIDERS: readonly ModelProviderDescriptor[] = [
     label: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com/v1',
     envKey: 'DEEPSEEK_API_KEY',
-    modelHint: '如 deepseek-chat / deepseek-reasoner',
+    modelHint: '如 deepseek-flash / deepseek-v4-pro（GET /models 实测返回为准）',
     consoleUrl: 'https://platform.deepseek.com/api_keys',
     officialLogin: false,
     planNote: '按量计费（账户充值），无订阅套餐。',

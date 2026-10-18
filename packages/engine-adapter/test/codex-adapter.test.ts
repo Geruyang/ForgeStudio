@@ -275,6 +275,12 @@ describe('回合生命周期事件投影（fixture 真实子进程）', () => {
     // item/fileChange/patchUpdated 一次 + turn/diff/updated 首次一次（第二次同内容去重）
     expect(patches).toHaveLength(2);
 
+    // D-4b 回归：patch/applied 必须先于同回合 turn/completed 投影（同步落盘保证顺序）
+    const completedIdx = h.events.findIndex((e) => e.type === 'turn/completed');
+    for (let i = 0; i < patches.length; i++) {
+      expect(h.events.indexOf(patches[i]!)).toBeLessThan(completedIdx);
+    }
+
     const first = patches[0]!;
     const aChange = first.files.find((f) => f.path === 'src/a.ts');
     const bChange = first.files.find((f) => f.path === 'src/b.ts');

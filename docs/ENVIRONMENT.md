@@ -69,4 +69,6 @@
 - live 测试运行方式：
   - 提供方模型列表：FD_LIVE_ENGINE_HOME=%APPDATA%ForgeStudioengine（npm test -w apps/desktop 自动 skip 未配置项）
   - FZ3B 实机：FZ3B_HOST/FZ3B_USER/FZ3B_PASSWORD（packages/engineering-runner test/ssh-fz3b.live.test.ts）
-- 模型配额：ChatGPT 订阅额度已于 2026-10-17 用尽（10-23 重置）；方舟/智谱/千问 key 已配置
+- 模型配额：ChatGPT 订阅额度已于 2026-10-17 用尽（10-23 重置）；方舟/智谱/千问 key 已配置；
+  **DeepSeek key 2026-10-18 配置并 live 实测（模型列表 2 项 + 推理 sanity 通过）**；
+  Kimi 无 key（用户指示暂缓）

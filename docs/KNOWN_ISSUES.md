@@ -41,16 +41,15 @@
 ### D-4 发现的实现/脚本问题（非 D 所有权，待负责人处理）
 | # | 问题 | 位置 | 建议 |
 |---|---|---|---|
-| D-4a | `--reporter=basic` 在 vitest 5 已移除：`npm test -w packages/engineering-runner`（及 apps/desktop）直接崩溃（`ERR_LOAD_URL` 加载自定义 reporter 失败） | 各包 package.json test 脚本 | 负责人删除 `--reporter=basic` 或改用 `--reporter=dot`（D 无权改 package.json） |
-| D-4b | B1 既有测试 `packages/engine-adapter/test/codex-adapter.test.ts` 的 "patches" 用例偶发失败（约 10 次运行 1~2 次，疑似超时/时序），非 D 所有权文件，未修改 | engine-adapter | B1 复查该用例的等待时序；本轮全量回归未复现，观察中 |
+| D-4a | ~~`--reporter=basic` 在 vitest 5 已移除：`npm test -w packages/engineering-runner`（及 apps/desktop）直接崩溃~~ | 各包 package.json test 脚本 | **已修复**（后续版本脚本已去 basic reporter；2026-10-18 全链 `npm test` 复验通过） |
+| D-4b | ~~B1 既有测试 "patches" 用例偶发失败（约 10 次运行 1~2 次）~~ | engine-adapter | **已修复（2026-10-18，集成负责人）**：根因是 `#emitPatchApplied` fire-and-forget 异步写盘后才发 `patch/applied`，与同步投影的 `turn/completed` 存在乱序竞态（事件顺序无保证，属适配层真实缺陷而非测试时序）。修复：patch 落盘改 `mkdirSync/writeFileSync` 同步路径，保证 patch/applied 先于同回合后续通知投影；测试补顺序断言。**连续 20 轮单跑全绿 + 全量 62/62** |
 | D-4c | M1 凭证扫描器曾漏检 JSON 形式赋值 `{"apiKey": "..."}`（键名带尾引号时不命中）——诊断/导出恰以 JSON 为载体；已在 m1 测试修复正则（`["']?`）并加注释 | m1 测试（已修） | B2 实现真实导出时复用同一扫描器语义 |
 
 ### D-6 环境残留（2026-10-14 晚，非产品缺陷）
 
-- `apps/desktop/release/win-unpacked/`：首次打包的旧产物，`app.asar` 仍被系统级句柄占用
-  （Defender/索引类，无用户态进程持有），删除/改名均被拒（`win-unpacked.tmp` 已清理）。
-  **内含缺件旧版，不得作为验收对象**；正式证据以 `release-final/` 与 `release/*.exe` 为准。
-  待句柄释放（通常重启后）删除。
+- ~~`apps/desktop/release/win-unpacked/`：首次打包的旧产物，句柄占用删除被拒~~
+  **已清理（2026-10-18）**：系统句柄释放后删除成功；`release/` 与 `release-final/` 中
+  ForgeStudio Setup 0.1.0.exe 哈希复核均为 v21（0EE357B7…D4484），正式证据不受影响。
 
 ### D-5 已修复的 D 侧问题（记录供追溯）
 - m1/m5 前波遗留用例两处失败（本波首跑暴露、随即修复）：①扫描器 JSON 盲点（见 D-4c）；

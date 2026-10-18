@@ -18,6 +18,7 @@
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { appendFile, mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
@@ -1400,7 +1401,7 @@ export class CodexEngineAdapter implements EngineAdapter {
         const hash = createHash('sha256').update(diff).digest('hex');
         if (this.#lastTurnDiffHash.get(turnId) === hash) return; // 内容未变，不重复投影
         this.#lastTurnDiffHash.set(turnId, hash);
-        void this.#emitPatchApplied(threadId, turnId, undefined, diff);
+        this.#emitPatchApplied(threadId, turnId, undefined, diff);
         return;
       }
       case 'item/fileChange/patchUpdated': {
@@ -1431,7 +1432,7 @@ export class CodexEngineAdapter implements EngineAdapter {
           this.#recordUnknown(method, JSON.stringify(params ?? null));
           return;
         }
-        void this.#emitPatchApplied(threadId, turnId, itemId, diffs.join('\n'), files);
+        this.#emitPatchApplied(threadId, turnId, itemId, diffs.join('\n'), files);
         return;
       }
       case 'error': {
@@ -1778,14 +1779,18 @@ export class CodexEngineAdapter implements EngineAdapter {
     this.#emitEvent({ type: 'session/started', threadId });
   }
 
-  /** patch 全文落盘 → patch/applied 事件（patchRef 引用落盘文件） */
-  async #emitPatchApplied(
+  /**
+   * patch 全文落盘 → patch/applied 事件（patchRef 引用落盘文件）。
+   * 同步落盘 + 同步发事件：保证 patch/applied 一定先于同回合后续通知
+   * （item/completed、turn/completed）投影，消除事件乱序竞态（D-4b 根因）。
+   */
+  #emitPatchApplied(
     threadId: string | undefined,
     turnId: string,
     itemId: string | undefined,
     diff: string,
     explicitFiles?: Array<{ path: string; changeType: 'added' | 'modified' | 'deleted' }>,
-  ): Promise<void> {
+  ): void {
     const files =
       explicitFiles ??
       ((): Array<{ path: string; changeType: 'added' | 'modified' | 'deleted' }> => {
@@ -1798,8 +1803,8 @@ export class CodexEngineAdapter implements EngineAdapter {
     const patchRef = `patch-g${this.#generation}-${++this.#patchCounter}`;
     try {
       const dir = path.join(this.#options.storageDir, 'patches');
-      await mkdir(dir, { recursive: true });
-      await writeFile(path.join(dir, `${patchRef}.patch`), diff, 'utf8');
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, `${patchRef}.patch`), diff, 'utf8');
     } catch (e) {
       // 落盘失败不伪造 patchRef：发可恢复错误事件，跳过本次 patch/applied
       this.#emitEvent({
