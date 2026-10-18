@@ -413,3 +413,15 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
   （环境变量一配即签，届时走 v23 验证关口）**。
 - 至此 **Z4 清单全部闭环**（Kimi/Z4-A1/A2 暂缓项除外）：B1 DeepSeek ✅、B2 管线 ✅（待证书）、
   B3 ✅、可选 1–3 ✅（v22）、D-4b ✅、win-unpacked 清理 ✅。
+
+## 完整验证与发布收尾（2026-10-19）
+
+- [x] **全量复验（HEAD a664a3b 后）**：typecheck 0；contracts 34 / runner 157+4skip /
+  mcp 36 / adapter 62 / desktop 95+6skip；FZ3B live×2（板上 make + 多文件单测，实机）；
+  提供方模型列表 live×5（方舟 36/36、智谱 3、千问 177、DeepSeek 2；Kimi 无 key skip）；
+  v22 产物哈希复核（release/release-final 均 85834428…EBC3）；安装态冒烟 13/13。
+  （GUI 走查 exit=0/39 断言已于 10-19 凌晨以最终脚本版本验证，此后应用代码零改动。）
+- [x] **GitHub 发布准备**：仓库 README 新建；全历史密钥扫描（四家 key 特征串 + sk- 泛型，
+  工作树与 rev-list --all 均未检出）；历史大文件扫描（>50MB 无）；.gitignore 覆盖
+  node_modules/dist/release/tools/vendored（安装包与引擎二进制不入库）。
+- 发布方式：GitHub 私有仓库上传（保守默认；如需公开翻转 repo visibility 即可）。
