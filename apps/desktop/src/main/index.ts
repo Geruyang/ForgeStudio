@@ -200,7 +200,14 @@ app.on('before-quit', () => {
   quitting = true;
 });
 
+let installingUpdate = false;
+export function markInstallingUpdate(): void {
+  installingUpdate = true;
+}
+
 app.on('will-quit', (event) => {
+  // 更新安装退出：不拦截（quitAndInstall 需自然完成 quit 以启动安装器）
+  if (installingUpdate) return;
   // 优雅收尾：先引擎后 runner（runner 内部等待在途操作安全收尾）
   event.preventDefault();
   void (async () => {

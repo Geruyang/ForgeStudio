@@ -1172,7 +1172,10 @@ export class OpsEngine {
     const after = await captureSourceSnapshot({
       taskId: task.id,
       projectRoot: loaded.profile.buildFromSnapshot ? buildRoot : task.projectRoot,
-      profile: loaded.profile,
+      // B 级：复核针对快照目录，产物 glob 防御性排除（构建把产物写入快照目录，防自污染指纹）
+      profile: loaded.profile.buildFromSnapshot
+        ? { ...loaded.profile, inputExcludes: [...loaded.profile.inputExcludes, ...loaded.profile.artifactsGlob] }
+        : loaded.profile,
       profileFileSha256: loaded.fileSha256,
       toolVersions,
     });
@@ -1311,7 +1314,10 @@ export class OpsEngine {
     const after = await captureSourceSnapshot({
       taskId: task.id,
       projectRoot: loaded.profile.buildFromSnapshot ? verifyRoot : task.projectRoot,
-      profile: loaded.profile,
+      // B 级：复核针对快照目录，产物 glob 防御性排除（防自污染指纹）
+      profile: loaded.profile.buildFromSnapshot
+        ? { ...loaded.profile, inputExcludes: [...loaded.profile.inputExcludes, ...loaded.profile.artifactsGlob] }
+        : loaded.profile,
       profileFileSha256: loaded.fileSha256,
       toolVersions,
     });

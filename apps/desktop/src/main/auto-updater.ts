@@ -77,6 +77,13 @@ export async function downloadUpdate(): Promise<void> {
 
 /** 安装（downloaded 后用户确认触发；退出并运行安装器） */
 export function quitAndInstall(): void {
+  // 通知宿主跳过 will-quit 拦截（否则 app.exit(0) 抢先，安装器不启动）
+  try {
+    const host = require('./index.ts');
+    if (host && typeof host.markInstallingUpdate === 'function') host.markInstallingUpdate();
+  } catch {
+    /* 测试环境无宿主 */
+  }
   autoUpdater.quitAndInstall(false, true);
 }
 
