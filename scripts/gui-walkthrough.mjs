@@ -429,9 +429,19 @@ async function main() {
     // 引擎链刚创建了新会话线程 → 侧栏应有条目
     await waitFor(`document.querySelectorAll('[data-testid="thread-item"]').length >= 1`, 15000, '会话列表有条目');
     const before = await evalJs(`document.querySelectorAll('[data-testid="thread-item"]').length`);
-    // 搜索过滤（键盘级输入驱动 React 受控组件）：当前会话标题片段 → 恰 1 条；不存在词 → 空态；清空恢复
-    // 注：uuid v7 标题前缀同分钟高度相似，取 16 字符保证唯一
-    const firstTitle = await evalJs(`document.querySelector('[data-testid="thread-item"] .thread-item__title')?.textContent?.trim().slice(0, 16) ?? ''`);
+    // 搜索过滤（键盘级输入驱动 React 受控组件）：取首条标题的最小唯一前缀（A-12 等批量会话
+    // 标题前缀高度相似——uuid/任务号前 16 字符可能撞车），过滤恰 1 条 → 空态 → 清空恢复
+    const titlesJson = await evalJs(
+      `JSON.stringify([...document.querySelectorAll('[data-testid="thread-item"] .thread-item__title')].map(e=>e.textContent.trim()))`,
+    );
+    const titles = JSON.parse(titlesJson);
+    assert(titles.length > 0, `会话标题可读（${titles.length} 条）`);
+    let frag = (titles[0] ?? '').slice(0, 6);
+    const first = titles[0] ?? '';
+    while (frag.length < first.length && titles.filter((t) => t.includes(frag)).length > 1) {
+      frag = first.slice(0, frag.length + 4);
+    }
+    const firstTitle = frag;
     assert(firstTitle.length > 0, `取到会话标题片段（${firstTitle}）`);
     await typeInto('[data-testid="thread-search"]', firstTitle);
     await waitFor(`document.querySelectorAll('[data-testid="thread-item"]').length === 1`, 10000, '搜索过滤到 1 条');
@@ -463,6 +473,10 @@ async function main() {
     );
     // 压缩入口渲染条件：无消息的会话不渲染（有消息+live 会话才出现——渲染条件正确性）
     assert(await evalJs(`!document.querySelector('[data-testid="compact-thread-btn"]')`), '压缩上下文按钮按渲染条件隐藏（无消息会话）');
+    // 审阅入口渲染条件（Z2B-2）：同压缩——无消息会话不渲染
+    assert(await evalJs(`!document.querySelector('[data-testid="review-btn"]')`), '代码审阅按钮按渲染条件隐藏（无消息会话）');
+    // 远程目标行渲染条件（Z3）：本任务 profile 无 SSH 目标 → 不渲染（不虚报）
+    assert(await evalJs(`!document.querySelector('[data-testid="ssh-targets-row"]')`), '远程目标行按渲染条件隐藏（profile 无 SSH 目标）');
   }
 
   log('10', 'Browser.close 优雅退出');

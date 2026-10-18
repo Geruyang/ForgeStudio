@@ -240,3 +240,20 @@ desktop 79+6skip（+更新检查 7）；typecheck 0 错误；安装态 13 步冒
 1. v16 打包（含审阅入口与 FZ3B profile）+ 走查补「代码审阅」按钮断言（需模型回合，走查暂无）
 2. FZ3B：SSH 目标在设备/授权 UI 的呈现（当前经 profile 直达，无授权卡语义——按需细化）
 3. electron-updater 完整通道（待签名证书）；DeepSeek/Kimi 列表 live（待 key）；第二用户（暂缓）
+
+## v16 阶段交付（2026-10-18，ZCode）
+
+- [x] **Z3 呈现层**：inspect 集成 SSH 目标探测（TCP 可达 + 密码环境变量状态，inspect resultSummary
+  含 SSH 异常统计）；工程面板「远程目标（SSH 板卡）」行（host:port/用户/密码变量名，无目标不渲染）；
+  ProfileSummary.sshTargets 摘要 + store.profileSummaries。测试 runner 4 + renderer 2。
+- [x] **v16 验证关口**：构建打包 **SHA-256 `99DD0573F3415BC68E3C665F22A0B50DF1F118D236E5AC11AC791957647B4EA7`**
+  （未签名，release-final 留存）→ 静默升级安装（v15→v16，标记核验）→ **安装态冒烟 13/13** →
+  **GUI 走查 exit=0 / 34 断言全绿**（新增审阅按钮/远程目标行渲染条件断言；走查搜索改用
+  最小唯一前缀——A-12 批量会话标题前缀高度相似）。
+- 测试基线：contracts 34 / runner 157+2skip(live) / mcp 36 / adapter 62 / desktop 82+6skip；typecheck 0。
+
+## 下一步
+
+1. FZ3B GUI 级使用链：应用向 runner 传递 SSH 凭据环境（当前需带 FZ3B_PASSWORD 启动应用），
+   与设备授权卡语义整合（按需）
+2. electron-updater 完整通道（待签名证书）；DeepSeek/Kimi 列表 live（待 key）；第二用户（暂缓）
