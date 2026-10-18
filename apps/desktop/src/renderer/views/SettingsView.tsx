@@ -5,7 +5,7 @@
  * ② 界面：语言/退出确认；
  * ③ 诊断与关于：引擎与 runner 状态/导出诊断/版本。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/context';
 import { Modal } from '../components/common/Modal';
 import { Badge, StatusChip } from '../components/common/Badge';
@@ -335,6 +335,15 @@ function UpdateCheckRow() {
   const [feedUrl, setFeedUrl] = useState(settings?.updateFeedUrl ?? '');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [updater, setUpdater] = useState<{ status: string; version?: string; progress?: { percent: number } } | null>(null);
+
+  useEffect(() => {
+    const off = window.forgedesk.app.onUpdaterEvent?.((s: unknown) => setUpdater(s as { status: string; version?: string; progress?: { percent: number } }));
+    void window.forgedesk.app.updaterState().then((r) => {
+      if (r.ok) setUpdater(r.value as { status: string });
+    });
+    return () => off?.();
+  }, []);
 
   const check = async () => {
     setBusy(true);
@@ -353,12 +362,24 @@ function UpdateCheckRow() {
       }
       setResult(
         r.value.updateAvailable
-          ? `发现新版本 ${r.value.latestVersion}（当前 ${r.value.currentVersion}）${r.value.notes ? `：${r.value.notes}` : ''}——请从发布渠道手动下载安装`
+          ? `发现新版本 ${r.value.latestVersion}（当前 ${r.value.currentVersion}）${r.value.notes ? `：${r.value.notes}` : ''}`
           : `已是最新版本（${r.value.currentVersion}）`,
       );
     } finally {
       setBusy(false);
     }
+  };
+
+  const download = async () => {
+    setResult(null);
+    const r = await window.forgedesk.app.updaterDownload();
+    if (!r.ok) setResult(`下载失败：${r.failure?.message ?? '未知错误'}`);
+  };
+
+  const install = async () => {
+    if (!window.confirm('安装更新将退出应用并运行安装器，确认继续？')) return;
+    const r = await window.forgedesk.app.updaterInstall();
+    if (!r.ok) setResult(`安装失败：${r.failure?.message ?? '未知错误'}`);
   };
 
   return (
@@ -367,7 +388,7 @@ function UpdateCheckRow() {
         type="url"
         value={feedUrl}
         onChange={(e) => setFeedUrl(e.target.value)}
-        placeholder="https://…/update-feed.json"
+        placeholder="https://…/latest.yml（electron-updater 更新源）"
         aria-label="更新源 URL"
         data-testid="update-feed-url"
         style={{ flex: '1 1 260px', fontSize: 12, padding: '4px 8px' }}
@@ -375,6 +396,21 @@ function UpdateCheckRow() {
       <button type="button" className="fd-btn fd-btn--small" disabled={busy} onClick={() => void check()} data-testid="update-check-btn">
         {busy ? '检查中…' : '检查更新'}
       </button>
+      {updater?.status === 'available' && (
+        <button type="button" className="fd-btn fd-btn--small" onClick={() => void download()} data-testid="updater-download-btn">
+          下载 {updater.version ?? ''}
+        </button>
+      )}
+      {updater?.status === 'downloading' && (
+        <span style={{ fontSize: 11, color: 'var(--text-faint)' }} data-testid="updater-progress">
+          下载中 {Math.round(updater.progress?.percent ?? 0)}%
+        </span>
+      )}
+      {updater?.status === 'downloaded' && (
+        <button type="button" className="fd-btn fd-btn--small fd-btn--primary" onClick={() => void install()} data-testid="updater-install-btn">
+          重启并安装 {updater.version ?? ''}
+        </button>
+      )}
       {result && (
         <span style={{ fontSize: 11, color: 'var(--text-faint)', flexBasis: '100%' }} data-testid="update-check-result">
           {result}

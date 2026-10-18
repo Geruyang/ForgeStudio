@@ -92,6 +92,14 @@ contextBridge.exposeInMainWorld('forgedesk', {
       invoke(IPC.app.configureModelProvider, req),
     clearModelProvider: (providerId: string) => invoke(IPC.app.clearModelProvider, providerId),
     checkUpdate: () => invoke(IPC.app.checkUpdate),
+    updaterDownload: () => invoke(IPC.app.updaterDownload),
+    updaterInstall: () => invoke(IPC.app.updaterInstall),
+    updaterState: () => invoke(IPC.app.updaterState),
+    onUpdaterEvent: (cb: (state: unknown) => void) => {
+      const listener = (_e: unknown, state: unknown) => cb(state);
+      ipcRenderer.on(IPC.app.updaterEvent, listener);
+      return () => ipcRenderer.removeListener(IPC.app.updaterEvent, listener);
+    },
     sshCredentialSet: (passwordEnv: string, password: string) => invoke(IPC.app.sshCredentialSet, passwordEnv, password),
     sshCredentialClear: (passwordEnv: string) => invoke(IPC.app.sshCredentialClear, passwordEnv),
     sshCredentialNames: () => invoke(IPC.app.sshCredentialNames),

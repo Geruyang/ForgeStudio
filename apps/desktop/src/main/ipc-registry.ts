@@ -21,6 +21,7 @@ import type { AppPaths } from './paths';
 import { writeDiagnostics } from './diagnostics';
 import { listProviderSummaries, configureProvider, clearProvider, listProviderModels } from './provider-config';
 import { checkForUpdate } from './update-check';
+import { checkUpdates, downloadUpdate, quitAndInstall, updaterState, wireAutoUpdater } from './auto-updater';
 import { setSshCredential, clearSshCredential, listSshCredentialNames } from './ssh-credentials';
 
 export interface IpcContext {
@@ -230,12 +231,21 @@ export function registerIpc(ctx: IpcContext): void {
     return { restartRequired: true };
   });
   register(IPC.app.sshCredentialNames, () => listSshCredentialNames(ctx.paths.dataDir));
-  // Z2C 更新检查 scaffold：feed URL 来自用户设置；仅比对告知，不下载不安装
+  // Z2C 更新通道：scaffold 比对告知 + electron-updater 完整链（下载/安装用户触发）
   register(IPC.app.checkUpdate, async () => {
     const feedUrl = (await ctx.settings.load()).updateFeedUrl?.trim();
     if (!feedUrl) throw new Error('未配置更新源 URL（设置 → 诊断与关于 → 更新源）');
     return checkForUpdate(ctx.getVersion(), feedUrl);
   });
+  register(IPC.app.updaterDownload, async () => {
+    const feedUrl = (await ctx.settings.load()).updateFeedUrl?.trim();
+    await checkUpdates(feedUrl); // setFeedURL（幂等）后触发下载
+    await downloadUpdate();
+  });
+  register(IPC.app.updaterInstall, () => {
+    quitAndInstall();
+  });
+  register(IPC.app.updaterState, () => updaterState());
   register(IPC.app.openProviderConsole, async (e, providerId: string) => {
     const desc = MODEL_PROVIDERS.find((d) => d.id === providerId);
     if (!desc) throw new Error(`未知模型提供方: ${providerId}`);

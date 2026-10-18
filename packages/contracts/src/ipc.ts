@@ -85,8 +85,12 @@ export const IPC = {
     sshCredentialClear: 'app:ssh-credential-clear',
     /** 已配置变量名列表（仅名字，不含值） */
     sshCredentialNames: 'app:ssh-credential-names',
-    /** 检查更新（Z2C：读取 updateFeedUrl 指向的 JSON 并比对版本；仅告知不安装） */
+    /** 检查更新（Z2C 完整通道：electron-updater；状态经 updater:event 推送） */
     checkUpdate: 'app:check-update',
+    updaterDownload: 'app:updater-download',
+    updaterInstall: 'app:updater-install',
+    updaterState: 'app:updater-state',
+    updaterEvent: 'app:updater-event', // on
     /** 在外部终端拉起随包 CLI 的官方 login（CODEX_HOME=产品引擎目录，不复制既有客户端凭证） */
     openEngineLogin: 'app:open-engine-login',
     /** 多模型提供方（OpenAI 兼容 responses）：列表/配置/清除/控制台外链/模型拉取 */
@@ -121,6 +125,15 @@ export interface AppInfo {
   homeDir: string;
   engineHome: string; // 产品专属 CODEX_HOME
   engineCliPath: string;
+}
+
+/** 自动更新通道状态（electron-updater 投影，Z2C 完整通道） */
+export interface UpdaterState {
+  status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+  version?: string;
+  progress?: { percent: number; bytesPerSecond: number; transferred: number; total: number };
+  error?: string;
+  releaseNotes?: string;
 }
 
 export interface AppSettings {
@@ -336,6 +349,14 @@ export interface ForgeDeskBridge {
         notes?: string;
       }>
     >;
+    /** 下载更新（electron-updater 完整通道；进度经 updater:event 推送） */
+    updaterDownload(): Promise<OpResult<void>>;
+    /** 安装已下载的更新（用户确认后退出并安装） */
+    updaterInstall(): Promise<OpResult<void>>;
+    /** 当前更新通道状态（拉取式兜底；事件为主 updater:event on） */
+    updaterState(): Promise<OpResult<UpdaterState>>;
+    /** 更新通道状态事件订阅 */
+    onUpdaterEvent(cb: (state: UpdaterState) => void): () => void;
     /** 打开某提供方的控制台（固定白名单 URL，取 key 用） */
     openProviderConsole(providerId: string): Promise<OpResult<void>>;
     /** 拉取某提供方的模型列表（GET {base}/models，用已配置 key；id 仅限固定目录） */

@@ -12,6 +12,7 @@ import { app, BrowserWindow, dialog } from 'electron';
 import { resolveAppPaths, type AppPaths } from './paths';
 import { SettingsStore } from './settings';
 import { RunnerHost } from './runner-host';
+import { wireAutoUpdater } from './auto-updater';
 import { readSshCredentials, setSshCredential, clearSshCredential, listSshCredentialNames } from './ssh-credentials';
 import { EngineHost } from './engine-host';
 import { registerIpc, type IpcContext } from './ipc-registry';
@@ -129,6 +130,9 @@ async function bootstrap(): Promise<void> {
     // runner 起不来不阻塞窗口；界面按不可用呈现并给出诊断
     console.error('[forgedesk] runner 启动失败:', err);
   });
+
+  // 自动更新通道接线（Z2C）：状态变化推送 renderer（app:updater-event）
+  wireAutoUpdater((state: unknown) => mainWindow?.webContents.send(IPC.app.updaterEvent, state));
 
   createWindow(paths);
 }

@@ -65,3 +65,38 @@ execSync(
   { cwd: root, stdio: 'inherit', shell: 'powershell.exe' },
 );
 console.log('[package] 完成');
+
+// [package] 5/5 生成 latest.yml（electron-updater generic 源；含 SHA-512 与 blockmap 引用由 electron-builder 产物推导）
+// 说明：electron-builder --publish never 不产 latest.yml；此处从安装包与 blockmap 现算（与发布物规范一致）
+import { createHash } from 'node:crypto';
+const exeFile = fs.readdirSync(path.join(root, ebOutput)).find((f) => /^ForgeStudio Setup .*\.exe$/.test(f));
+if (exeFile) {
+  const exePath = path.join(root, ebOutput, exeFile);
+  const exeBuf = fs.readFileSync(exePath);
+  const sha512 = createHash('sha512').update(exeBuf).digest('base64');
+  const size = exeBuf.length;
+  const blockmapFile = exeFile + '.blockmap';
+  const blockmapPath = path.join(root, ebOutput, blockmapFile);
+  const blockmapExists = fs.existsSync(blockmapPath);
+  const blockmapSha512 = blockmapExists
+    ? createHash('sha512').update(fs.readFileSync(blockmapPath)).digest('base64')
+    : '';
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const releaseDate = new Date().toISOString();
+  const yml = [
+    `version: ${pkg.version}`,
+    `files:`,
+    `  - url: ${exeFile}`,
+    `    sha512: ${sha512}`,
+    `    size: ${size}`,
+    ...(blockmapExists ? [`  - url: ${blockmapFile}`, `    sha512: ${blockmapSha512}`, `    size: ${fs.statSync(blockmapPath).size}`] : []),
+    `path: ${exeFile}`,
+    `sha512: ${sha512}`,
+    `releaseDate: ${releaseDate}`,
+    '',
+  ].join('\n');
+  fs.writeFileSync(path.join(root, ebOutput, 'latest.yml'), yml, 'utf8');
+  console.log(`[package] latest.yml 已生成（${pkg.version}，${exeFile}）`);
+} else {
+  console.warn('[package] 未找到安装包，跳过 latest.yml');
+}
