@@ -277,3 +277,16 @@ desktop 79+6skip（+更新检查 7）；typecheck 0 错误；安装态 13 步冒
 
 1. electron-updater 完整通道（待签名证书）；DeepSeek/Kimi 列表 live（待 key）；第二用户（暂缓）
 2. （可选）FZ3B 更大工程样例（多文件 C 工程/板上单元测试框架）；设备授权卡与 SSH 目标整合
+
+## v18 阶段交付（2026-10-18，ZCode）——用户项目实机验证 + 完整更新通道
+
+- [x] **fz3b-semantic-video-search 用户项目实机验证**（A-14-SSH 第二个真实项目）：
+  vendored PS 用户态组件；板上编译（read_clock/mjpeg_source/NEON native -Wall -Wextra 零告警）+
+  自检（构建完整性 + 非根 /dev/mem 拒绝语义）+ B 级证据，7.1s 全链。
+  ort_runner 需 /root 下 onnxruntime SDK（root-only），如实排除并注明。
+- [x] **Z2C 完整更新通道**：electron-updater（generic provider）；autoDownload=false——下载/安装
+  均用户触发（进度% + confirm 确认重启）；package.mjs 现算 latest.yml（sha512/size 与安装包一致，
+  打包机断言测试）；设置页完整链 UI；未签名包如实说明。
+- [x] **v18 验证关口**：**SHA-256 `C903EF4A348E89FB7122533FE8AC846B99FB99A4ED1B5C2EDF01B15F9F45720E`**
+  → 静默安装 → 冒烟 13/13 → 走查 exit=0/36 断言（含 FZ3B 硬件 GUI 闭环 9d）。
+- DeepSeek/Kimi live：provider.env 无对应 key（用户新增的是智谱额度），如实跳过。
