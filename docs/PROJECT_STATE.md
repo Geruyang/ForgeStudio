@@ -316,3 +316,22 @@ fz3b-make/fz3b-svs 双 live 实机 + B级快照回归——全绿）
 - 安装包 211.6→211.1MB（主 bundle 占比小；updater 依赖仍随包 node_modules 供按需加载）
 - 全门复验：冒烟 13/13 + 走查 36 断言 + FZ3B 硬件 GUI 闭环 ✅
 - 正式包 **v20 SHA-256 `9C9D43F9301098E54BB11531801656B2B4FA9C5824FE58340EDA55BBC1850822`**（未签名，release-final 留存含 latest.yml/blockmap）
+
+## 深度审查（全面检查，2026-10-18，ZCode）——4 项缺陷修复 + 全门复验
+
+A-D 四层（契约/适配层→runner→主进程→渲染层）+ 安全面专项逐文件审查：
+
+**修复**：
+1. session/compacted 后 threads 列表未刷新（压缩改变 thread 服务端状态——消息数/活动时间）
+2. SettingsStore.patch 读改写竞态（并发调用丢更新）——Promise 链串行化
+3. openExternalTerminal projectRoot 内嵌引号注入面——清除引号后拼 cmd
+4. MessageItem 巨型助手文本（>4000 字符）撑爆 DOM——折叠预览+展开按钮
+   （流式中/用户消息不折叠）；3 例测试
+
+**审计通过（无缺陷，重点面）**：IPC 契约 50 键全注册（engine.status 走 sendSync 白名单）；
+loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile 文件来源）；凭据变量名
+白名单；HTTP body 上限 413；token timingSafeEqual；诊断 redact；导出无凭据；profile 用户
+目录优先次序正确；bootstrap 双订阅防护；DiffPanel 分块加载；WAL+事务存储；settings 原子写。
+
+**v21 全门复验**：冒烟 13/13 + 走查 exit=0/36 断言 + FZ3B 硬件 GUI 闭环 ✅
+正式包 **v21 SHA-256 `0EE357B7C5A6367C6CC2AC1AEFCA047BE8C5B8CFBAAEA278279A88F36D614484`**（未签名，release-final 留存含 latest.yml/blockmap）
