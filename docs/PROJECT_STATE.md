@@ -425,3 +425,5 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
   工作树与 rev-list --all 均未检出）；历史大文件扫描（>50MB 无）；.gitignore 覆盖
   node_modules/dist/release/tools/vendored（安装包与引擎二进制不入库）。
 - 发布方式：GitHub 私有仓库上传（保守默认；如需公开翻转 repo visibility 即可）。
+- GitHub 仓库：**https://github.com/Geruyang/ForgeStudio**（私有；remote origin=main，HEAD bbe0ec4
+  已推送核验）。如需公开，翻转 repo visibility 即可（历史已过密钥/大文件扫描）。
