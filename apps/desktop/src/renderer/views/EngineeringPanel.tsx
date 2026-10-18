@@ -2,6 +2,7 @@
  * 工程交付面板（右栏）：任务卡（状态徽标 + 验收进度）→ 运行验证按钮
  * （检查/构建/导出）→ 设备授权卡 → 验收单 → 证据 → 设备 → 操作历史 → 产物。
  */
+import { useState } from 'react';
 import { computeTaskAcceptance, type TaskOverview } from '../contracts/engineering';
 import { useAppStore } from '../store/context';
 import { Badge, StatusChip } from '../components/common/Badge';
@@ -179,22 +180,94 @@ export function EngineeringPanel() {
  *  可达性经「环境检查」探测（inspect 输出 sshTargets），此处为静态信息呈现。 */
 function SshTargetsRow({ profileId }: { profileId: string }) {
   const profiles = useAppStore((s) => s.profileSummaries);
+  const credentialNames = useAppStore((s) => s.sshCredentialNames);
+  const refreshSshCredentials = useAppStore((s) => s.refreshSshCredentials);
+  const setSshCredential = useAppStore((s) => s.setSshCredential);
+  const clearSshCredential = useAppStore((s) => s.clearSshCredential);
+  const [editingEnv, setEditingEnv] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+
   const targets = profiles.find((p) => p.id === profileId)?.sshTargets ?? [];
   if (targets.length === 0) return null;
+
+  const submit = async (passwordEnv: string) => {
+    const value = draft;
+    setEditingEnv(null);
+    setDraft('');
+    if (value.trim().length === 0) return;
+    setBusy(true);
+    try {
+      await setSshCredential(passwordEnv, value);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="device-row" data-testid="ssh-targets-row">
       <div className="device-row__head">
         <span className="device-row__name">远程目标（SSH 板卡）</span>
       </div>
       <div className="device-row__meta" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-        {targets.map((t) => (
-          <span key={`${t.host}:${t.port}:${t.username}`}>
-            <span className="fd-code">{t.host}:{t.port}</span> · {t.username} · 密码变量 <span className="fd-code">{t.passwordEnv}</span>
-          </span>
-        ))}
+        {targets.map((t) => {
+          const configured = credentialNames.includes(t.passwordEnv);
+          return (
+            <span key={`${t.host}:${t.port}:${t.username}`} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+              <span className="fd-code">{t.host}:{t.port}</span> · {t.username} · 变量 <span className="fd-code">{t.passwordEnv}</span>
+              {configured ? (
+                <Badge tone="ok">密码已配置</Badge>
+              ) : (
+                <Badge tone="warn">密码未配置</Badge>
+              )}
+              {editingEnv === t.passwordEnv ? (
+                <input
+                  autoFocus
+                  type="password"
+                  value={draft}
+                  maxLength={120}
+                  placeholder="板卡密码"
+                  aria-label={`配置 ${t.passwordEnv} 密码`}
+                  data-testid="ssh-credential-input"
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void submit(t.passwordEnv);
+                    if (e.key === 'Escape') setEditingEnv(null);
+                  }}
+                  onBlur={() => void submit(t.passwordEnv)}
+                  disabled={busy}
+                  style={{ fontSize: 12, padding: '2px 6px', width: 120 }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="fd-btn fd-btn--ghost fd-btn--small"
+                  data-testid="ssh-credential-btn"
+                  onClick={() => {
+                    setEditingEnv(t.passwordEnv);
+                    setDraft('');
+                  }}
+                >
+                  {configured ? '更换密码' : '配置密码'}
+                </button>
+              )}
+              {configured && editingEnv !== t.passwordEnv && (
+                <button
+                  type="button"
+                  className="fd-btn fd-btn--ghost fd-btn--small"
+                  data-testid="ssh-credential-clear-btn"
+                  onClick={() => void clearSshCredential(t.passwordEnv)}
+                >
+                  清除
+                </button>
+              )}
+            </span>
+          );
+        })}
       </div>
       <div className="device-row__meta" style={{ fontSize: 11 }}>
-        构建与验收在该板卡上执行（输入上传至板上任务目录，产物取回本地证据管线）；可达性经「环境检查」探测。
+        构建与验收在该板卡上执行（输入上传至板上任务目录，产物取回本地证据管线）；密码保存于本机数据目录，
+        重启应用后注入连接；可达性经「环境检查」探测。
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { app, BrowserWindow, dialog } from 'electron';
 import { resolveAppPaths, type AppPaths } from './paths';
 import { SettingsStore } from './settings';
 import { RunnerHost } from './runner-host';
+import { readSshCredentials, setSshCredential, clearSshCredential, listSshCredentialNames } from './ssh-credentials';
 import { EngineHost } from './engine-host';
 import { registerIpc, type IpcContext } from './ipc-registry';
 import { installSecurityPolicies, lockNavigation } from './security';
@@ -73,6 +74,8 @@ async function bootstrap(): Promise<void> {
     dataDir: paths.dataDir,
     runnerServicePath: paths.runnerServicePath,
     bundledProfilesDir: paths.bundledProfilesDir,
+    // SSH 板卡凭据随启动注入（Z3 GUI 链；凭据更新后需重启应用生效——如实语义）
+    sshCredentialEnv: await readSshCredentials(paths.dataDir),
     onEvent: (event) => mainWindow?.webContents.send(IPC.runner.event, event),
     onExited: (code) => {
       // runner 崩溃：界面显示不可用，不拖死普通编码会话（任务书 §6.2）

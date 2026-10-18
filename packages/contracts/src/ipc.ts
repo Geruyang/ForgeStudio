@@ -79,6 +79,12 @@ export const IPC = {
     openExternalTerminal: 'app:open-external-terminal', // 标注为产品受控执行边界之外
     exportDiagnostics: 'app:export-diagnostics',
     ensureProject: 'app:ensure-project', // 选择/登记项目目录
+    /** SSH 板卡凭据（Z3）：设置一条（passwordEnv 名 → 密码值；值不回显不落日志） */
+    sshCredentialSet: 'app:ssh-credential-set',
+    /** 清除一条凭据 */
+    sshCredentialClear: 'app:ssh-credential-clear',
+    /** 已配置变量名列表（仅名字，不含值） */
+    sshCredentialNames: 'app:ssh-credential-names',
     /** 检查更新（Z2C：读取 updateFeedUrl 指向的 JSON 并比对版本；仅告知不安装） */
     checkUpdate: 'app:check-update',
     /** 在外部终端拉起随包 CLI 的官方 login（CODEX_HOME=产品引擎目录，不复制既有客户端凭证） */
@@ -315,6 +321,10 @@ export interface ForgeDeskBridge {
     configureModelProvider(req: { providerId: string; apiKey: string; defaultModel?: string }): Promise<OpResult<void>>;
     /** 清除某提供方的 key 与激活配置 */
     clearModelProvider(providerId: string): Promise<OpResult<void>>;
+    /** SSH 板卡凭据：设置后需重启应用注入 runner（返回需重启提示）；值不回显 */
+    sshCredentialSet(passwordEnv: string, password: string): Promise<OpResult<{ restartRequired: true }>>;
+    sshCredentialClear(passwordEnv: string): Promise<OpResult<{ restartRequired: boolean }>>;
+    sshCredentialNames(): Promise<OpResult<string[]>>;
     /** 检查更新（Z2C scaffold）：读 updateFeedUrl 的 JSON 比对版本；仅告知，不下载不安装 */
     checkUpdate(): Promise<
       OpResult<{

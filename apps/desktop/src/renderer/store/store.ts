@@ -134,6 +134,8 @@ export interface AppState {
   tasks: TaskOverview[];
   /** profile 摘要（listProfiles 缓存；Z3 远程目标呈现用） */
   profileSummaries: import('../contracts/runner').ProfileSummary[];
+  /** 已配置 SSH 凭据的变量名集合（不含值；Z3） */
+  sshCredentialNames: string[];
   activeTaskId: string | null;
   devices: EnumeratedDevice[];
   pendingAuths: PendingAuthorization[];
@@ -165,6 +167,12 @@ export interface AppActions {
   refreshTasks(): Promise<void>;
   /** profile 摘要刷新（Z3：含 sshTargets 供面板呈现） */
   refreshProfiles(): Promise<void>;
+  /** SSH 板卡凭据状态刷新（Z3：仅变量名集合，不含值） */
+  refreshSshCredentials(): Promise<void>;
+  /** 设置板卡凭据（Z3：值不回显；保存后需重启注入 runner） */
+  setSshCredential(passwordEnv: string, password: string): Promise<void>;
+  /** 清除板卡凭据 */
+  clearSshCredential(passwordEnv: string): Promise<void>;
   refreshTask(taskId: string): Promise<void>;
   refreshDevices(): Promise<void>;
   refreshPendingAuths(): Promise<void>;
@@ -395,6 +403,7 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
       selectedModel: null,
       tasks: [],
       profileSummaries: [],
+      sshCredentialNames: [],
       activeTaskId: null,
       devices: [],
       pendingAuths: [],
@@ -445,6 +454,7 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
           safe(() => get().refreshThreads()),
           safe(() => get().refreshTasks()),
           safe(() => get().refreshProfiles()),
+          safe(() => get().refreshSshCredentials()),
           safe(() => get().refreshDevices()),
           safe(() => get().refreshPendingAuths()),
           safe(() => get().refreshDiagnostics()),
@@ -499,6 +509,18 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
           activeTaskId:
             s.activeTaskId && tasks.some((t) => t.id === s.activeTaskId) ? s.activeTaskId : latestTaskId(tasks),
         }));
+      },
+      async setSshCredential(passwordEnv, password) {
+        const r = await bridge.app.sshCredentialSet(passwordEnv, password);
+        if (r.ok) void get().refreshSshCredentials();
+      },
+      async clearSshCredential(passwordEnv) {
+        const r = await bridge.app.sshCredentialClear(passwordEnv);
+        if (r.ok) void get().refreshSshCredentials();
+      },
+      async refreshSshCredentials() {
+        const r = await bridge.app.sshCredentialNames();
+        if (r.ok) set({ sshCredentialNames: r.value });
       },
       async refreshProfiles() {
         const r = await bridge.runner.listProfiles();

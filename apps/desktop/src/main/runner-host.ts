@@ -14,11 +14,12 @@ import {
 
 export interface RunnerHostOptions {
   dataDir: string;
-  runnerServicePath: string;
-  /** 随包工程 profile 模板目录（只读；作为第二 profile 目录传给 runner） */
+  runnerServicePath: string;  /** 随包工程 profile 模板目录（只读；作为第二 profile 目录传给 runner） */
   bundledProfilesDir?: string;
   /** 启动等待发现文件的时限 */
   startupTimeoutMs?: number;
+  /** SSH 板卡凭据（Z3 GUI 链）：注入 runner 子进程 env（profile 的 passwordEnv 按名取用） */
+  sshCredentialEnv?: Record<string, string>;
   onEvent: (event: RunnerEvent) => void;
   onExited: (code: number) => void;
 }
@@ -57,6 +58,10 @@ export class RunnerHost {
       ],
       {
         serviceName: 'forgedesk-runner',
+        // SSH 板卡凭据随进程 env 注入（值不落日志/诊断；utilityProcess env 缺省继承本进程）
+        ...(this.opts.sshCredentialEnv && Object.keys(this.opts.sshCredentialEnv).length > 0
+          ? { env: { ...process.env, ...this.opts.sshCredentialEnv } }
+          : {}),
       },
     );
     this.#proc.on('exit', (code) => {

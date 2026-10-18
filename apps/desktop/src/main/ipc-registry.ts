@@ -21,6 +21,7 @@ import type { AppPaths } from './paths';
 import { writeDiagnostics } from './diagnostics';
 import { listProviderSummaries, configureProvider, clearProvider, listProviderModels } from './provider-config';
 import { checkForUpdate } from './update-check';
+import { setSshCredential, clearSshCredential, listSshCredentialNames } from './ssh-credentials';
 
 export interface IpcContext {
   paths: AppPaths;
@@ -219,6 +220,16 @@ export function registerIpc(ctx: IpcContext): void {
   register(IPC.app.clearModelProvider, (e, providerId: string) =>
     clearProvider(ctx.paths.engineHome, ctx.settings, providerId),
   );
+  // SSH 板卡凭据（Z3 GUI 链）：值只落 dataDir/ssh-credentials.env，不回显不进日志/诊断
+  register(IPC.app.sshCredentialSet, async (e, passwordEnv: string, password: string) => {
+    await setSshCredential(ctx.paths.dataDir, passwordEnv, password);
+    return { restartRequired: true as const };
+  });
+  register(IPC.app.sshCredentialClear, async (e, passwordEnv: string) => {
+    await clearSshCredential(ctx.paths.dataDir, passwordEnv);
+    return { restartRequired: true };
+  });
+  register(IPC.app.sshCredentialNames, () => listSshCredentialNames(ctx.paths.dataDir));
   // Z2C 更新检查 scaffold：feed URL 来自用户设置；仅比对告知，不下载不安装
   register(IPC.app.checkUpdate, async () => {
     const feedUrl = (await ctx.settings.load()).updateFeedUrl?.trim();
