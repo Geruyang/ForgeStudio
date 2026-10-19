@@ -107,9 +107,8 @@ static bool ETH_Init_Board(void)
   ETH_MACConfigTypeDef macCfg;
 
   __HAL_RCC_ETH_CLK_ENABLE();
-  HAL_Delay(5);
   HAL_GPIO_WritePin(PHY_RST_PORT, PHY_RST_PIN, GPIO_PIN_SET); /* 释放 PHY 复位（REF_CLK 起振） */
-  HAL_Delay(50);
+  HAL_Delay(150); /* LAN8720 上电到 REF_CLK 稳定 ≥100ms（数据手册） */
 
   heth.Instance = ETH;
   heth.Init.MACAddr = mac;
@@ -124,8 +123,8 @@ static bool ETH_Init_Board(void)
       HAL_ETH_ReadPHYRegister(&heth, NT_ETH_PHY_ADDRESS, NT_PHY_ID2, &id2) != HAL_OK ||
       (id1 & 0xFFFFU) != 0x0007U || (id2 & 0xFFF0U) != 0xC0F0U) return false;
 
-  /* 等自协商 + 链路（最多约 6 秒；BSR latched-low 以末次读为准） */
-  for (int i = 0; i < 60; i++) {
+  /* 等自协商 + 链路（最多约 3 秒；BSR latched-low 以末次读为准） */
+  for (int i = 0; i < 30; i++) {
     HAL_Delay(100);
     if (HAL_ETH_ReadPHYRegister(&heth, NT_ETH_PHY_ADDRESS, NT_PHY_BSR, &bsr) != HAL_OK) return false;
     if ((bsr & (NT_PHY_LINK_BIT | NT_PHY_AN_DONE_BIT)) == (NT_PHY_LINK_BIT | NT_PHY_AN_DONE_BIT)) break;
@@ -139,9 +138,9 @@ static bool ETH_Init_Board(void)
   macCfg.ChecksumOffload = DISABLE;
   if (HAL_ETH_SetMACConfig(&heth, &macCfg) != HAL_OK) return false;
 
-  HAL_NVIC_SetPriority(ETH_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ(ETH_IRQn);
-  if (HAL_ETH_Start_IT(&heth) != HAL_OK) return false;
+  /* 立即启动（缩短 Init→Start 间隔）；非中断模式：主循环轮询 ReadData，
+   * 消除对 ETH IRQ 的依赖（与 SysTick 异常归零同一防御策略） */
+  if (HAL_ETH_Start(&heth) != HAL_OK) return false;
   nt_link_up = 1;
   return true;
 }

@@ -146,6 +146,7 @@ export function SettingsView() {
                           .then((list) => {
                             if (list.length > 0) setProviderModels(list);
                           })
+                          .catch(() => undefined) // 拉取失败保持手填（401/超时属正常路径）
                           .finally(() => setModelsLoading(false));
                       }}
                       data-testid="settings-provider-fetch-models"
@@ -341,7 +342,7 @@ function UpdateCheckRow() {
     const off = window.forgedesk.app.onUpdaterEvent?.((s: unknown) => setUpdater(s as { status: string; version?: string; progress?: { percent: number } }));
     void window.forgedesk.app.updaterState().then((r) => {
       if (r.ok) setUpdater(r.value as { status: string });
-    });
+    }).catch(() => undefined); // 更新状态不可用不阻塞设置页
     return () => off?.();
   }, []);
 

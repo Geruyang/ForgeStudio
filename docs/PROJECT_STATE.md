@@ -441,3 +441,19 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
   建议见 fixture README；串口 VCP（COM3）无输出待接线确认。A-14 的串口 nonce/buildId 身份验证
   依赖通路打通后补齐。
 - 测试基线：runner 157+5skip（新增 stm32 live 用例默认 skip，需 FD_STM32_LIVE=1）。
+
+## 客户端安全加固 + ETH 排查终态（2026-10-19 晚）
+
+- [x] **ErrorBoundary（P1）**：渲染层任何组件抛异常 → 可恢复错误页（含技术详情折叠 + key 变更
+  重挂载恢复），替代整窗白屏。挂载于 main.tsx 根节点，覆盖全部子树。+3 测试。
+- [x] **SettingsView Promise 链补 catch（P3）**：模型列表拉取（401/超时属正常路径）与
+  updaterState 查询失败不再产生未处理拒绝。
+- [x] **ETH 排查终态**：非中断轮询模式（HAL_ETH_Start 替代 Start_IT）+ 初始化时序重排
+  （PHY 复位释放延时 150ms + 快速启动）——结果与中断模式完全一致（PC 跳 RAM、.data 递增
+  字节覆写、boot_stage 卡在 ETH 初始化）。**结论：板级硬件问题**（自写栈 / lwIP 移植 /
+  中断 / 轮询四种组合全部同样表现；MDIO 正常、寄存器配置正确、代码路径无缺陷）。
+  需硬件排查：示波器看 PA1 REF_CLK 50MHz 质量 / PHY 晶振起振 / RMII 走线完整性。
+- 客户端全面检查清单（15 项全过）：typecheck 0 / 全量测试绿（contracts 34 + runner 157+5skip +
+  mcp 36 + adapter 62 + desktop 98+6skip）/ 无 eval/innerHTML/console.log 残留 / preload 白名单
+  桥+沙箱 / 无渲染层 Node 访问 / 凭证不落渲染层 / 无 TODO/FIXME / 大文件均在已知范围 /
+  shell.openExternal 仅用于常量 URL / electron-builder sandbox 配置正确。
