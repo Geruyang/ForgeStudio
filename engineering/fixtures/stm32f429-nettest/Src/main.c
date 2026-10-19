@@ -23,6 +23,7 @@ volatile uint32_t nt_et_arp, nt_et_ipv4, nt_et_other, nt_bc_count;
 volatile uint32_t nt_last_etype, nt_last_len;
 volatile uint8_t nt_last_frame[64];
 volatile uint32_t nt_arp_target_ip, nt_arp_our_ip;
+volatile uint32_t nt_icmp_seen, nt_icmp_tx;
 
 #define LED_R_PORT GPIOH
 #define LED_R_PIN  GPIO_PIN_10
@@ -301,15 +302,19 @@ void nt_input(const uint8_t *f, uint16_t len)
   if (get32(ip+16) != get32(s_ip) && get32(ip+16) != 0xFFFFFFFF) return;
   memcpy(s_peer_mac, f+6, 6); nt_rx_packets++;
 
-  if (ip[9] == 1 && ipl >= 28 && ip[20] == 8) { /* ICMP echo → reply */
-    uint16_t pl = ipl-20; if (pl > 236) pl = 236;
+  if (ip[9] == 1 && ipl >= 28 && ip[20] == 8) { nt_icmp_seen++; /* ICMP echo → reply */
+    /* 修复：用 IP 头的 total length（不含以太网填充），不用帧长 ipl */
+    uint16_t total = get16(ip+2);
+    uint16_t pl = total - 20; if (pl > 236) pl = 236;
     uint8_t out[14+20+236]; uint8_t *o = out;
     memcpy(o, s_peer_mac, 6); memcpy(o+6, s_mac, 6); put16(o+12, 0x0800);
     uint8_t *r = o+14; memset(r,0,20); r[0]=0x45; put16(r+2,20+pl); r[6]=0x40; r[8]=64; r[9]=1;
     memcpy(r+12, ip+16, 4); memcpy(r+16, ip+12, 4); put16(r+10, cksum(r,20));
     memcpy(r+20, ip+20, pl); r[20]=0; r[21]=0; r[22]=0; r[23]=0;
     put16(r+22, cksum(r+20, pl));
-    nt_send(out, 14+20+pl);
+    { uint16_t fl = 14 + 20 + pl;
+      if (fl < 60) { memset(out + fl, 0, 60 - fl); fl = 60; }
+      if (nt_send(out, fl)) nt_icmp_tx++; }
     return;
   }
   if (ip[9] == 17 && ipl >= 28 && get16(ip+20+2) == NT_UDP_PORT) { /* UDP → identity/PONG */

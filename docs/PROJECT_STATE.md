@@ -469,3 +469,11 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
 - ⬜ 遗留：ICMP echo 校验和（不阻碍数据通路）；串口 COM3 无输出（fireDAP VCP 跳线待确认）
 - 教训记录：症状（"数据被覆写为机器码""SysTick 归零""PC 跳 RAM"）极具误导性——
   一切实为 .data/.bss 未初始化的上电残留。诊断思路：先验证最基础的 startup 正确性。
+
+## ICMP 排查记录（2026-10-19 深夜补充）
+
+- ICMP echo 回复已确认发送（nt_icmp_tx=4，与请求一一对应），但 PC 端收到后丢弃。
+- 已尝试修复：①IP total length 改用头字段（非帧长含填充） ②手动填充到 60 字节最小帧
+- UDP 同路径正常（同 MAC/IP/端口），排除物理层/MAC/ARP 问题
+- 可能原因：PC 端 tun2socks VPN 或 Windows Firewall 对 ICMP 的处理与 UDP 不同
+- 待验证：临时关闭 tun2socks 后再试 ping；或用 Wireshark 抓包确认回复是否到达 PC
