@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include "stm32f4xx_hal.h"
 #include "nettest.h"
+#include "usb_device.h"
+#include "usbd_cdc_if.h"
 
 ETH_HandleTypeDef heth;
 ETH_DMADescTypeDef DMARxDscrTab[ETH_RX_DESC_CNT];
@@ -41,7 +43,7 @@ volatile uint32_t nt_icmp_seen, nt_icmp_tx;
 #define NT_PHY_LINK_BIT 0x0004U
 #define NT_PHY_AN_DONE_BIT 0x0020U
 
-static void Error_Handler(void)
+void Error_Handler(void)
 {
   __disable_irq();
   for (;;) { HAL_GPIO_TogglePin(LED_R_PORT, LED_R_PIN); for (volatile int i = 0; i < 4000000; i++) __NOP(); }
@@ -184,17 +186,42 @@ static void UART1_Init(void)
   USART1->CR1 = USART_CR1_UE | USART_CR1_TE | USART_CR1_RE;
 }
 static void uart_putc(char c) { while ((USART1->SR & USART_SR_TXE) == 0U) {} USART1->DR = (uint8_t)c; }
-static void uart_puts(const char *s) { while (*s != 0) uart_putc(*s++); while ((USART1->SR & USART_SR_TC) == 0U) {} }
+static volatile uint8_t usb_ready = 0;
+static void uart_puts(const char *s) {
+  if (usb_ready) {
+    uint16_t n = (uint16_t)strlen(s);
+    if (n > 512) n = 512;
+    CDC_Transmit_HS((uint8_t *)s, n);
+    return;
+  }
+  while (*s != 0) uart_putc(*s++);
+  while ((USART1->SR & USART_SR_TC) == 0U) {}
+}
 
 static char s_line[64];
 static uint16_t s_lineLen;
+
+/* USB CDC 接收环形缓冲（在 usbd_cdc_if.c 的 CDC_Receive_HS 中写入） */
+extern volatile uint8_t usb_rx_buf[256];
+extern volatile uint16_t usb_rx_head, usb_rx_tail;
+
 static void uart_line_service(void)
 {
+  /* 1) USB CDC 输入（环形缓冲消费） */
+  while (usb_rx_tail != usb_rx_head && (size_t)s_lineLen + 1 < sizeof(s_line)) {
+    uint8_t ch = usb_rx_buf[usb_rx_tail];
+    usb_rx_tail = (usb_rx_tail + 1) % sizeof(usb_rx_buf);
+    if (ch != '\n' && ch != '\r') { s_line[s_lineLen++] = (char)ch; continue; }
+    if (s_lineLen == 0) continue;
+    goto process_line;
+  }
+  /* 2) USART1 输入（硬件寄存器轮询） */
   while ((size_t)s_lineLen + 1 < sizeof(s_line)) {
     if ((USART1->SR & USART_SR_RXNE) == 0U) break;
     uint8_t ch = (uint8_t)(USART1->DR & 0xFFU);
     if (ch != '\n' && ch != '\r') { s_line[s_lineLen++] = (char)ch; continue; }
     if (s_lineLen == 0) continue;
+  process_line:
     s_line[s_lineLen] = '\0';
     char reply[160];
     int n = nt_line_reply(s_line, reply, sizeof(reply) - 2);
@@ -303,18 +330,29 @@ void nt_input(const uint8_t *f, uint16_t len)
   memcpy(s_peer_mac, f+6, 6); nt_rx_packets++;
 
   if (ip[9] == 1 && ipl >= 28 && ip[20] == 8) { nt_icmp_seen++; /* ICMP echo → reply */
-    /* 修复：用 IP 头的 total length（不含以太网填充），不用帧长 ipl */
+    /* 方案：直接在接收缓冲区 in-place 修改请求帧→回发（与 lwIP 同思路，最可靠）
+     * 交换 MAC/IP、type 8→0、重算校验和、TTL 不改（PC 不检查回显 TTL） */
+    uint8_t *reply = (uint8_t *)f; /* RX 缓冲区可写（我们的池） */
     uint16_t total = get16(ip+2);
-    uint16_t pl = total - 20; if (pl > 236) pl = 236;
-    uint8_t out[14+20+236]; uint8_t *o = out;
-    memcpy(o, s_peer_mac, 6); memcpy(o+6, s_mac, 6); put16(o+12, 0x0800);
-    uint8_t *r = o+14; memset(r,0,20); r[0]=0x45; put16(r+2,20+pl); r[6]=0x40; r[8]=64; r[9]=1;
-    memcpy(r+12, ip+16, 4); memcpy(r+16, ip+12, 4); put16(r+10, cksum(r,20));
-    memcpy(r+20, ip+20, pl); r[20]=0; r[21]=0; r[22]=0; r[23]=0;
-    put16(r+22, cksum(r+20, pl));
-    { uint16_t fl = 14 + 20 + pl;
-      if (fl < 60) { memset(out + fl, 0, 60 - fl); fl = 60; }
-      if (nt_send(out, fl)) nt_icmp_tx++; }
+    /* 1. 交换以太网 MAC */
+    uint8_t tmp6[6];
+    memcpy(tmp6, reply, 6);
+    memcpy(reply, reply+6, 6);
+    memcpy(reply+6, tmp6, 6);
+    /* 2. 交换 IP 源/目的 */
+    uint8_t tmp4[4];
+    memcpy(tmp4, reply+14+12, 4);
+    memcpy(reply+14+12, reply+14+16, 4);
+    memcpy(reply+14+16, tmp4, 4);
+    /* 3. IP 头校验和：清零重算 */
+    reply[14+10] = 0; reply[14+11] = 0;
+    put16(reply+14+10, cksum(reply+14, 20));
+    /* 4. ICMP type 8→0，校验和清零重算 */
+    reply[14+20] = 0;
+    reply[14+22] = 0; reply[14+23] = 0;
+    put16(reply+14+22, cksum(reply+14+20, total-20));
+    /* 5. 发送（保持原始帧长，含 padding） */
+    if (nt_send(reply, len)) nt_icmp_tx++;
     return;
   }
   if (ip[9] == 17 && ipl >= 28 && get16(ip+20+2) == NT_UDP_PORT) { /* UDP → identity/PONG */
@@ -377,6 +415,9 @@ int main(void)
   nt_boot_stage = 1;
   GPIO_Init_All();
   nt_boot_stage = 2;
+  MX_USB_DEVICE_Init(); /* USB CDC：COM4 串口 */
+  HAL_Delay(2000);       /* 等 USB 枚举完成 */
+  usb_ready = 1;         /* 切换输出到 CDC */
   bool ethOk = ETH_Init_Board();
   nt_boot_stage = ethOk ? 3 : 0xFE;
   UART1_Init();

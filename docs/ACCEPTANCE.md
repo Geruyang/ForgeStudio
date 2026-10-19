@@ -459,3 +459,21 @@
 - **串口 COM3** ⬜：无输出（fireDAP VCP 硬件跳线，需用户确认 J12/J11）
 
 级别：T2（A-14 的网口数据通路段完全打通；串口 nonce/buildId 验证待 VCP 跳线确认后补齐）
+
+### A-14 网口+USB CDC 全功能打通（2026-10-19 深夜终版）
+
+**USB CDC（COM4，板卡 USB Device 口）**：
+- 初始化 ✅：MX_USB_DEVICE_Init（修复恒真 guard）、OTG HS Full Speed（PB14/PB15 AF12）
+- 输出（TX）✅：周期状态横幅 `NT b=nt-20261019-c l=1 rx=.. tx=..`（CDC_Transmit_HS）
+- 输入（RX）✅：HELLO → `NETTEST OK build=.. mac=.. ip=..`；PING nonce → `PONG .. build=..`
+  （CDC_Receive_HS 环形缓冲 + main.c 轮询消费）
+
+**UDP（板卡以太网口）**：
+- ARP 解析 ✅ / HELLO ✅ / PING nonce ✅（持续正常）
+
+**ICMP echo（ping）**：
+- 固件 ✅：in-place 修改请求帧回发（与 lwIP 同思路）；回复已发送（tx 计数匹配）
+- PC 端 ❌：Windows Public 网络配置文件阻止 ICMP 入站（需用户手动关闭防火墙或添加规则）
+
+**修复的关键 bug**：
+- USB guard 恒真（`!0||started`→`started`）、usb_ready 未置 1、CDC RX 无消费路径

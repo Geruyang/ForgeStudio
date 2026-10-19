@@ -477,3 +477,14 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
 - UDP 同路径正常（同 MAC/IP/端口），排除物理层/MAC/ARP 问题
 - 可能原因：PC 端 tun2socks VPN 或 Windows Firewall 对 ICMP 的处理与 UDP 不同
 - 待验证：临时关闭 tun2socks 后再试 ping；或用 Wireshark 抓包确认回复是否到达 PC
+
+## USB CDC + ICMP 终态（2026-10-19 深夜）
+
+- [x] **USB CDC 全链路打通**：COM4（板卡 USB Device 口，OTG HS Full Speed PB14/PB15）
+  - TX：周期横幅 + 响应输出 ✅
+  - RX：环形缓冲消费 + HELLO/PING nonce 行协议 ✅（与 UDP 同一 nt_line_reply 实现）
+  - 修复：guard 恒真、usb_ready 未置 1、CDC RX 无消费——三处
+- [x] **ICMP in-place 方案**：直接修改接收帧（swap MAC/IP + type 8→0 + 重算校验和）
+  回发——与 lwIP 同思路，固件侧正确。PC 端 Public 网络防火墙阻止接收（非固件问题）。
+- 测试基线：contracts 34 / runner 157+5skip / mcp 36 / adapter 62 / desktop 98+6skip；typecheck 0。
+- 固件 text 23KB（USB 栈增加 ~12KB）。

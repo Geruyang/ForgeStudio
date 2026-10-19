@@ -22,7 +22,7 @@
 #include "usbd_cdc_if.h"
 
 /* USER CODE BEGIN INCLUDE */
-#include "gs_usb_capture.h"
+
 
 /* USER CODE END INCLUDE */
 
@@ -160,7 +160,7 @@ static int8_t CDC_Init_HS(void)
    * Called in class init before configuration completes and traffic starts. */
   HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_HS, 1, 0x100);
   HAL_PCDEx_SetTxFiFo(&hpcd_USB_OTG_HS, 2, 0x10);
-  gs_usb_capture_link_reset();
+
   /* Set Application Buffers */
   USBD_CDC_SetTxBuffer(&hUsbDeviceHS, UserTxBufferHS, 0);
   USBD_CDC_SetRxBuffer(&hUsbDeviceHS, UserRxBufferHS);
@@ -176,7 +176,7 @@ static int8_t CDC_Init_HS(void)
 static int8_t CDC_DeInit_HS(void)
 {
   /* USER CODE BEGIN 9 */
-  gs_usb_capture_link_reset();
+
   return (USBD_OK);
   /* USER CODE END 9 */
 }
@@ -270,10 +270,22 @@ static int8_t CDC_Control_HS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
   * @param  Len: Number of data received (in bytes)
   * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAILL
   */
+/* USB CDC 接收缓冲（main.c 轮询消费） */
+volatile uint8_t usb_rx_buf[256];
+volatile uint16_t usb_rx_head = 0;
+volatile uint16_t usb_rx_tail = 0;
+
 static int8_t CDC_Receive_HS(uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 11 */
-  gs_usb_capture_receive(Buf, *Len);
+  /* 将收到的字节存入环形缓冲，main.c 的 uart_line_service 轮询消费 */
+  for (uint32_t i = 0; i < *Len; i++) {
+    uint16_t next = (usb_rx_head + 1) % sizeof(usb_rx_buf);
+    if (next != usb_rx_tail) {
+      usb_rx_buf[usb_rx_head] = Buf[i];
+      usb_rx_head = next;
+    }
+  }
   USBD_CDC_SetRxBuffer(&hUsbDeviceHS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceHS);
   return (USBD_OK);
@@ -317,7 +329,7 @@ static int8_t CDC_TransmitCplt_HS(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
 {
   uint8_t result = USBD_OK;
   /* USER CODE BEGIN 14 */
-  gs_usb_capture_tx_complete();
+
   UNUSED(Buf);
   UNUSED(Len);
   UNUSED(epnum);
