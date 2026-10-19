@@ -24,13 +24,14 @@ Reset_Handler:
   ldr   sp, =_estack
   bl    SystemInit
 
-/* 复制 .data 段：Flash → SRAM */
+/* 复制 .data 段：Flash → SRAM
+ * 循环条件：r0 (current) < r1 (end) 时继续——cmp r0, r1 + blo */
   ldr   r0, =_sdata
   ldr   r1, =_edata
   ldr   r2, =_sidata
 1:
-  cmp   r1, r0
-  bcs   2f
+  cmp   r0, r1
+  bhs   2f
   ldr   r3, [r2], #4
   str   r3, [r0], #4
   b     1b
@@ -39,8 +40,8 @@ Reset_Handler:
   ldr   r0, =_sbss
   ldr   r1, =_ebss
 3:
-  cmp   r1, r0
-  bcs   4f
+  cmp   r0, r1
+  bhs   4f
   movs  r3, #0
   str   r3, [r0], #4
   b     3b

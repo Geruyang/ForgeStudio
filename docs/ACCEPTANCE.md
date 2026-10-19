@@ -436,3 +436,26 @@
   判定为板级问题非代码架构）；排查记录与下一步建议见 fixture README。
   调试串口（COM3 fireDAP VCP）未见面输出，VCP 接线待确认。
 - 级别：A-14 部分实证（烧录/校验/证据链 ✅；串口 nonce/buildId 身份验证与网口数据通路 ⬜）
+
+### A-14 网口测试固件全链打通（2026-10-19 深夜，三个根因全部修复）
+
+**三个根因（全部为代码 bug，非硬件问题）**：
+
+1. **startup .data/.bss 循环条件写反**：`cmp r1,r0+bcs` = end≥current 恒真→循环不执行。
+   .data 未拷贝、.bss 未清零→RAM 全是调试探针残留（含 BKPT 指令）→引发一切"异常"。
+   修复：`cmp r0,r1+bhs`（current vs end）。
+
+2. **PHY 自协商未启用**：LAN8720 BCR bit12 上电默认 0→10M 半双工，MAC 配 100M 全双工→速度不匹配→MMC 帧计数全零。
+   修复：初始化前写 BCR=0x1200 启用+重启自协商。
+
+3. **ARP 目标 IP 偏移 4 字节**：`get32(f+14+28)` 读 f+42（填充零），TPA 在 f+38→匹配恒失败。
+   修复：`get32(f+14+24)`。
+
+**验证结果**：
+- **ARP 解析** ✅：PC ARP 表 `169.254.200.10 → 02-f4-29-14-00-0a`
+- **UDP HELLO** ✅：`NETTEST OK build=nt-20261019-c mac=02:F4:29:14:00:0A ip=169.254.200.10 rx=.. tx=.. link=1`
+- **UDP PING nonce** ✅：`PONG test123 build=nt-20261019-c`
+- **ICMP echo** ⬜：超时（疑似校验和问题，不阻碍数据通路验证）
+- **串口 COM3** ⬜：无输出（fireDAP VCP 硬件跳线，需用户确认 J12/J11）
+
+级别：T2（A-14 的网口数据通路段完全打通；串口 nonce/buildId 验证待 VCP 跳线确认后补齐）

@@ -457,3 +457,15 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
   mcp 36 + adapter 62 + desktop 98+6skip）/ 无 eval/innerHTML/console.log 残留 / preload 白名单
   桥+沙箱 / 无渲染层 Node 访问 / 凭证不落渲染层 / 无 TODO/FIXME / 大文件均在已知范围 /
   shell.openExternal 仅用于常量 URL / electron-builder sandbox 配置正确。
+
+## ETH 数据通路全链打通（2026-10-19 深夜）
+
+- [x] **三个代码 bug 修复**（此前误判为"板级硬件问题"，实为全部可修的代码缺陷）：
+  1. startup .data/.bss 循环条件反（cmp r1,r0+bcs → cmp r0,r1+bhs）
+  2. LAN8720 PHY 自协商未启用（BCR=0x1200 启用+重启）
+  3. ARP 目标 IP 偏移错 4 字节（f+14+28 → f+14+24）
+- [x] **附带修复**：DWT 时基小数累积（d/tpm 在快循环中恒 0 → s_frac 累积方案）
+- [x] **实测全链路**：ARP 解析 ✅ / UDP HELLO 身份回复 ✅ / UDP PING nonce ✅
+- ⬜ 遗留：ICMP echo 校验和（不阻碍数据通路）；串口 COM3 无输出（fireDAP VCP 跳线待确认）
+- 教训记录：症状（"数据被覆写为机器码""SysTick 归零""PC 跳 RAM"）极具误导性——
+  一切实为 .data/.bss 未初始化的上电残留。诊断思路：先验证最基础的 startup 正确性。

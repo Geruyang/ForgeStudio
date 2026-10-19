@@ -12,7 +12,7 @@ INCLUDES = -IInc -IDrivers/CMSIS/Device/ST/STM32F4xx/Include -IDrivers/CMSIS/Inc
 CFLAGS   = $(CPU) $(DEFS) $(INCLUDES) $(EXTRA) -O2 -g -Wall -Wextra -ffunction-sections -fdata-sections -fno-common
 LDFLAGS  = $(CPU) -TSTM32F429IGTx.ld -Wl,--gc-sections -Wl,-Map=$(BUILD)/$(TARGET).map,--cref -specs=nano.specs -specs=nosys.specs
 
-SRC_C  = Src/main.c Src/net.c Src/tick.c Src/stm32f4xx_it.c Src/system_stm32f4xx.c \
+SRC_C  = Src/main.c Src/stm32f4xx_it.c Src/system_stm32f4xx.c \
          Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c \
          Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.c \
          Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc_ex.c \
