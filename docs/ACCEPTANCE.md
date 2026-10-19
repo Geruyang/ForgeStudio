@@ -422,3 +422,17 @@
   Pipeline Test、TimeStamper 已嵌入、Status=UnknownError（自签无信任链，预期；正式证书应 Valid）**；
   正式 v22 产物复验仍 NotSigned。package.mjs 预检：PFX 缺文件/缺密码两用例构建前即报错。
 - 级别：T3 发布工程；正式签名待真实证书（BUILD.md 选型参考：Azure Trusted Signing / Certum OSS 等）
+
+### A-14 部分实证：STM32F429 实机烧录链 + 网口测试固件（2026-10-19，用户提供板卡）
+- 板卡：野火 STM32F429IGT6 挑战者 V1 + fireDAP（CMSIS-DAP）+ LAN8720（以太网直连 PC）
+- **烧录读回校验**：仓库 GestureScreen.axf（用户项目的已知好镜像）与自研 nettest 固件 ELF
+  均经 probe-rs download --verify 烧录成功（真实写入 flash 并读回比对）
+- **网口测试程序（新写代码）**：全新 GCC 固件（自写启动/链接/时钟/GPIO/极简 ARP-ICMP-UDP 栈
+  + HAL 子集，无 RTOS/lwIP）；板上启动至主循环、MDIO 读取 LAN8720 ID/链路状态成功
+- **产品级实机验收**（FD_STM32_LIVE=1 vitest test/stm32-nettest.live.test.ts）：任务创建 →
+  B 级快照内 make 构建（elf sha256 2344d123…）→ SWD 烧录+读回校验（0.85s）→ 验收项点亮 →
+  证据落库——**新写代码→构建→烧录→校验→证据链闭环成立**
+- **未解决（如实记录）**：板上 ETH 数据通路（ARP 无应答；自写栈与 lwIP 移植同样表现，
+  判定为板级问题非代码架构）；排查记录与下一步建议见 fixture README。
+  调试串口（COM3 fireDAP VCP）未见面输出，VCP 接线待确认。
+- 级别：A-14 部分实证（烧录/校验/证据链 ✅；串口 nonce/buildId 身份验证与网口数据通路 ⬜）

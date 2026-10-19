@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "id": "stm32f429-nettest",
+  "revision": 1,
+  "title": "STM32F429 网口测试固件（GCC 构建 + SWD 烧录读回校验，实机）",
+  "kind": "software",
+  "build": {
+    "exe": "make",
+    "args": [],
+    "timeoutMs": 180000,
+    "env": {
+      "PATH": "C:\\Program Files\\Git\\usr\\bin;E:\\AiProject\\tools-dl\\arm-gcc\\xpack-arm-none-eabi-gcc-15.2.1-1.1\\bin;E:\\AiProject\\tools-dl\\build-tools\\xpack-windows-build-tools-4.4.1-3\\bin;E:\\AiProject\\tools-dl\\probe-rs;C:\\Windows\\System32;C:\\Windows"
+    }
+  },
+  "artifactsGlob": [
+    "build/stm32f429-nettest.elf",
+    "build/stm32f429-nettest.bin",
+    "build/stm32f429-nettest.hex"
+  ],
+  "verifiers": [
+    {
+      "verifierId": "swd-flash-verify",
+      "title": "SWD 烧录 + 读回校验（fireDAP CMSIS-DAP，STM32F429IG）",
+      "command": {
+        "exe": "E:\\AiProject\\tools-dl\\probe-rs\\probe-rs.exe",
+        "args": [
+          "download",
+          "--chip",
+          "STM32F429IG",
+          "--verify",
+          "build/stm32f429-nettest.elf"
+        ],
+        "timeoutMs": 120000,
+        "env": {
+          "PATH": "C:\\Program Files\\Git\\usr\\bin;E:\\AiProject\\tools-dl\\probe-rs;C:\\Windows\\System32;C:\\Windows"
+        }
+      },
+      "passExitCode": 0,
+      "stdoutMustContain": [],
+      "stdoutMustNotContain": [],
+      "outputLimitBytes": 1048576
+    }
+  ],
+  "inputIncludes": [
+    "Makefile",
+    "STM32F429IGTx.ld",
+    "startup_stm32f429xx.s",
+    "Inc/**",
+    "Src/**",
+    "Drivers/**"
+  ],
+  "inputExcludes": [
+    "build/**"
+  ],
+  "buildFromSnapshot": true
+}

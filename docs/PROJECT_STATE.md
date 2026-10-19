@@ -427,3 +427,17 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
 - 发布方式：GitHub 私有仓库上传（保守默认；如需公开翻转 repo visibility 即可）。
 - GitHub 仓库：**https://github.com/Geruyang/ForgeStudio**（私有；remote origin=main，HEAD bbe0ec4
   已推送核验）。如需公开，翻转 repo visibility 即可（历史已过密钥/大文件扫描）。
+
+## STM32F429 实机接入（2026-10-19，用户提供板卡与 GestureScreen 仓库）
+
+- [x] **A-14 部分实证**：fireDAP（CMSIS-DAP）+ probe-rs 0.32 烧录链打通——GestureScreen.axf
+  与自研固件均 download --verify 成功；工具链落地 E:\AiProject\tools-dl（xpack arm-gcc 15.2.1 /
+  windows-build-tools 4.4.1 / probe-rs 0.32.0，ENVIRONMENT 已记录）。
+- [x] **网口测试固件 stm32f429-nettest**（新写代码可行性验证）：GCC 全新构建（自写启动/链接/
+  时钟/GPIO/极简 ARP-ICMP-UDP 应答栈）+ DWT 时基；板上启动至主循环、MDIO 通（LAN8720 ID/链路）。
+- [x] **产品级实机闭环**：profile stm32f429-nettest（B 级快照内构建 + SWD 烧录读回校验为可执行
+  验收）；live 测试 FD_STM32_LIVE=1 全绿（构建→烧录→校验→验收点亮→证据落库）。
+- ⬜ **未解决（板级）**：ETH 数据通路（ARP 无应答，两种协议栈同样表现）——排查记录与四项下一步
+  建议见 fixture README；串口 VCP（COM3）无输出待接线确认。A-14 的串口 nonce/buildId 身份验证
+  依赖通路打通后补齐。
+- 测试基线：runner 157+5skip（新增 stm32 live 用例默认 skip，需 FD_STM32_LIVE=1）。

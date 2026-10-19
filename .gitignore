@@ -16,3 +16,6 @@ app-data/
 # release-final 只保留 ui-audit 验收截图，安装包 exe/blockmap/构建日志不入库
 apps/desktop/release-final/*
 !apps/desktop/release-final/ui-audit/
+
+# stm32f429-nettest 固件构建产物（快照内可再生）
+engineering/fixtures/stm32f429-nettest/build/

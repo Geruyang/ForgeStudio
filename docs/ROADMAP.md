@@ -102,7 +102,7 @@ Z1 遗留（并入 Z2 或条件项）：
 
 | # | 事项 | 现状与重启条件 |
 |---|---|---|
-| Z4-A1 | STM32/probe-rs 实机（A-14 原路径：烧录→串口 nonce/buildId 验证） | 设备 fixture 与 DeviceAdapter 就绪；需板卡+探针+串口。注：并行 codex 线已完成等效 SWD 实机证据，可作为参照不作为本线验收 |
+| Z4-A1 | STM32/probe-rs 实机（A-14 原路径：烧录→串口 nonce/buildId 验证） | **部分实证（2026-10-19，用户接板）**：fireDAP 烧录+读回校验、网口测试固件（新代码）构建烧录、产品级 SWD 验收闭环全通；剩：板上 ETH 数据通路板级问题（ARP 无应答，见 fixture README 排查记录）与串口 VCP 接线确认，通后补 nonce/buildId 身份验证 |
 | Z4-A2 | 第二 Windows 用户全项回归 | 需第二账户环境（codex 线已做过限定范围验收，本线全项未做） |
 
 ### 未实现——依赖外部输入（阻塞）

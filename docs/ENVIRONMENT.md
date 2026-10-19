@@ -81,3 +81,14 @@
 | signtool.exe（Windows SDK） | **未安装** | 签名走 `@electron/windows-sign` 内置 vendor signtool（Z4-B2 实测可用） |
 | MXC 沙箱（codex Windows sandbox） | **已预置** | CodexSandboxOffline/Online 账户 + offline 防火墙规则（UAC 一次性安装）；回滚 `codex sandbox uninstall` |
 | Defender 排除项 | 未添加 | codex doctor 建议为 codex 可执行加排除；属安全姿态变更，待用户明示后再做 |
+
+## 嵌入式实机工具链（2026-10-19，E:\AiProject\tools-dl）
+
+| 工具 | 版本 | 用途 |
+|---|---|---|
+| xpack arm-none-eabi-gcc | 15.2.1 | STM32 交叉构建（含 objcopy/size/gdb） |
+| xpack windows-build-tools | 4.4.1 | make（需 Git usr/bin 的 sh 在 PATH——profile env 已注入） |
+| probe-rs | 0.32.0 | fireDAP CMSIS-DAP 烧录/读回校验/gdb-server |
+
+板卡：野火 STM32F429IGT6 挑战者 V1（fireDAP=COM3、原生 USB CDC=COM4、LAN8720 直连 PC Realtek）；
+live 测试开关 FD_STM32_LIVE=1（packages/engineering-runner test/stm32-nettest.live.test.ts）。
