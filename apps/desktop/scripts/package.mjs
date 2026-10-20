@@ -90,7 +90,10 @@ console.log('[package] 完成');
 // [package] 5/5 生成 latest.yml（electron-updater generic 源；含 SHA-512 与 blockmap 引用由 electron-builder 产物推导）
 // 说明：electron-builder --publish never 不产 latest.yml；此处从安装包与 blockmap 现算（与发布物规范一致）
 import { createHash } from 'node:crypto';
-const exeFile = fs.readdirSync(path.join(root, ebOutput)).find((f) => /^ForgeStudio Setup .*\.exe$/.test(f));
+const exeFile = fs.readdirSync(path.join(root, ebOutput))
+  .filter((f) => /^ForgeStudio Setup .+\.exe$/.test(f))
+  .sort()
+  .pop(); // 取版本号最大的（避免多版本共存时选中旧文件）
 if (exeFile) {
   const exePath = path.join(root, ebOutput, exeFile);
   const exeBuf = fs.readFileSync(exePath);

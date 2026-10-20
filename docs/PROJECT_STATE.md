@@ -488,3 +488,23 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
   回发——与 lwIP 同思路，固件侧正确。PC 端 Public 网络防火墙阻止接收（非固件问题）。
 - 测试基线：contracts 34 / runner 157+5skip / mcp 36 / adapter 62 / desktop 98+6skip；typecheck 0。
 - 固件 text 23KB（USB 栈增加 ~12KB）。
+
+## v1.1.0 三轮回归 + Zynq 实机验证（2026-10-20）
+
+### 三轮 Bug 回归测试
+- **R1 静态扫描**：✅ 无缺陷（setTimeout 均为一次性、事件监听为应用级单例、JSON.parse 均有 try-catch、
+  find()[0] 均有空值回退）
+- **R2 代码审查**：✅ 无缺陷（ReviewPanel/ErrorBoundary/sign-hook/walkthrough-restore 四个新增模块逻辑正确）
+- **R3 运行时审计**：FZ3B 并发 SSH 竞争 1 次抖动（串行 3/3 全绿，非代码缺陷）；全量测试通过
+- **修复 1 项**：package.mjs exeFile 匹配模式可选中旧版本文件 → 改为 sort().pop() 取最新
+
+### Zynq FZ3B 实机验证（3/3 全绿）
+- ssh-fz3b（基础）: ✅ 板上 gcc 构建产物 sha256=f9c8ada9…
+- ssh-fz3b-make（make 工程）: ✅ 板上 make 构建产物 sha256=cad2dc66… + B 级快照×SSH
+- ssh-fz3b-unit（多文件 C + 单元测试）: ✅ 板上多文件构建产物 sha256=4b934bd2… + 8 用例全过
+
+### v1.1.0 验证关口
+- **SHA-256 `670C680EDFE5BEC5C9375D85060C6F8B40F13DF6CE01869235DA440FFD2A9F6C`**（未签名）
+- 静默安装 ✅ → **安装态冒烟 13/13** ✅ → 全量回归绿（contracts 34 / runner 157+5skip / mcp 36 /
+  adapter 62 / desktop 98+6skip）→ typecheck 0 ✅
+- latest.yml 修正引用 1.1.0 ✅
