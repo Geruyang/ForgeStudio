@@ -957,6 +957,7 @@ export class OpsEngine {
         (sshTargets.length > 0 ? `，SSH 目标异常 ${sshDown}/${sshTargets.length}` : '') +
         '）';
     });
+    this.recomputeTaskStatus(task); // R2-BUG8: inspect 完成后恢复任务状态
     return {
       ok: true,
       operationId: op.id,
@@ -1016,14 +1017,20 @@ export class OpsEngine {
     }
     const sourceRoot = inputSourceRoot ?? task.projectRoot;
     const session = await this.sshTransport(target);
-    const dir = remoteTaskDir(target, task.id, inputDigest);
-    const files: Array<{ rel: string; content: Buffer }> = [];
-    for (const m of inputManifest) {
-      const rel = toPosix(m.path);
-      files.push({ rel, content: await fsp.readFile(path.join(sourceRoot, rel)) });
+    /* R2-BUG1 修复：SSH 会话在 setup 阶段失败时必须关闭——否则泄漏 ssh2 Client（含 keepalive 定时器） */
+    try {
+      const dir = remoteTaskDir(target, task.id, inputDigest);
+      const files: Array<{ rel: string; content: Buffer }> = [];
+      for (const m of inputManifest) {
+        const rel = toPosix(m.path);
+        files.push({ rel, content: await fsp.readFile(path.join(sourceRoot, rel)) });
+      }
+      await session.uploadInputs(dir, files);
+      return { session, dir, target };
+    } catch (e) {
+      await session.close().catch(() => undefined);
+      throw e;
     }
-    await session.uploadInputs(dir, files);
-    return { session, dir, target };
   }
 
   /** 远程执行命令（cwd 相对任务目录）；返回结构与本地 runCommand 对齐 */
@@ -1144,6 +1151,7 @@ export class OpsEngine {
     const { sha256, sizeBytes } = await sha256File(artifactAbs);
     const archiveDir = path.join(ctx.logDir, 'artifacts');
     await fsp.mkdir(archiveDir, { recursive: true });
+    this.recomputeTaskStatus(task); // R2-BUG8: build 完成后恢复任务状态
     const artifactBase = path.basename(artifactRel);
     await fsp.copyFile(artifactAbs, path.join(archiveDir, artifactBase));
     const archivedRel = toPosix(path.join('evidence', task.id, op.id, 'artifacts', artifactBase));
@@ -1412,6 +1420,7 @@ export class OpsEngine {
       o.endedAt = new Date().toISOString();
       o.resultSummary = `交付包已导出: ${bundle.bundlePath}`;
     });
+    this.recomputeTaskStatus(task); // R2-BUG8: export 完成后恢复任务状态
     return { ok: true, operationId: op.id, bundlePath: bundle.bundlePath, manifest: bundle.manifest as unknown };
   }
 
@@ -1634,18 +1643,29 @@ export class OpsEngine {
       logRef: outcome.logRef,
       createdAt: new Date().toISOString(),
     };
-    this.storage.insertEvidence(evidence);
+    /* R2-BUG5 修复（安全红线）：device.verify 只允许点亮 "device:" 前缀的验收项——
+     * 软件 verifier 的 executable 项绝不能被串口证据绕过执行器点亮 */
+    if (!input.verifierId.startsWith('device:')) {
+      throw new BadRequestError(
+        `device.verify 的 verifierId 必须以 "device:" 前缀开头（当前 "${input.verifierId}"）——软件验收项只能由真实 profile.verifier 执行点亮`,
+      );
+    }
+    evidence.acceptanceItemId = undefined as unknown as string; // 先占位，后续赋值后入库（R2-BUG6 修复：先赋值再入库）
     // 串口验证绑定到同 verifierId 的验收项（proposed 不点亮）
     const items = this.storage.listAcceptanceItems(task.id).filter(
       (a) => a.verifierId === input.verifierId && a.status !== 'proposed',
     );
     const target = items[0];
     if (target) {
+      evidence.acceptanceItemId = target.id; // R2-BUG6 修复：在 insertEvidence 前赋值（原代码在之后赋值导致 DB 列为 NULL）
+    }
+    // 重新入库（含 acceptanceItemId）
+    this.storage.insertEvidence({ ...evidence });
+    if (target) {
       target.status = result === 'passed' ? 'passed' : 'failed';
       target.lastEvidenceId = evidence.id;
       target.updatedAt = new Date().toISOString();
       this.storage.updateAcceptanceItem(target);
-      evidence.acceptanceItemId = target.id;
       this.emit('acceptance/updated', { taskId: task.id, payload: { acceptance: this.storage.listAcceptanceItems(task.id) } });
     }
     this.emit('evidence/created', { taskId: task.id, operationId: op.id, payload: { evidenceId: evidence.id, result } });

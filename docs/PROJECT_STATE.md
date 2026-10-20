@@ -508,3 +508,40 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
 - 静默安装 ✅ → **安装态冒烟 13/13** ✅ → 全量回归绿（contracts 34 / runner 157+5skip / mcp 36 /
   adapter 62 / desktop 98+6skip）→ typecheck 0 ✅
 - latest.yml 修正引用 1.1.0 ✅
+
+## v1.2.0 深度三轮回归（2026-10-20）
+
+### R1 深度静态分析 ✅
+- 数组边界、异步竞态、useEffect 清理、无限循环风险、Promise 拒绝、文件原子性、IPC 错误捕获、共享可变状态：全部通过
+
+### R2 逐文件深度审查（Agent 驱动）→ 发现 26 个 bug，修复 8 个关键项
+
+**engine-adapter（3 项修复）**：
+1. [P0] 行缓冲上限仅在换行处理时检查 → 无换行超长行可 OOM（累积阶段也检查）
+2. [P0] stdin 无 error 监听 → 引擎死亡时 EPIPE 崩溃宿主（加 error 监听器）
+3. [P0] Windows taskkill 无 error 处理 → taskkill 失败时崩溃或进程树残留（加 error 兜底 + kill 回退）
+
+**ops/engine.ts（3 项修复）**：
+4. [P0] device.verify 可点亮软件 executable 验收项（安全红线）→ 强制 "device:" 前缀校验
+5. [P1] inspect/build/export 完成后任务停留 running → 成功后 recomputeTaskStatus
+6. [P1] SSH setup 失败时会话泄漏 → try/catch 关闭
+
+**store.ts（3 项修复）**：
+7. [P1] selectThread 竞态（stale loadThread 响应覆盖新选择）→ 响应到达时校验 activeThreadId
+8. [P1] sendDraft 双击重复发送 + await 后清空草稿丢输入 → 在飞守卫 + 同步清空
+9. [P2] sendFromNotice 不清 reviewPending → 与 sendDraft 一致
+
+**未修复（低优先级，记录待后续）**：
+- adapter: 旧进程事件串扰新连接（需代次标记）；send() 回退竞态；approve() 卡死
+- engine: git 干净文件不入快照清单；非快照构建产物指纹自污染；同任务并发操作无互斥
+- store: refreshModels 竞态；configureModelProvider 旧模型重建；testResults/serialLogs 无上限
+
+### R3 全面运行时审计 ✅
+- 全量测试绿（contracts 34 / runner 157+5skip / mcp 36 / adapter 62 / desktop 98+6skip）
+- FZ3B Zynq 实机 3/3 全绿（gcc + make + 多文件单测）
+- Provider live 5 过（方舟 36/智谱 3/千问 177/DeepSeek 2；Kimi skip）
+- typecheck 0
+
+### v1.2.0 验证关口
+- SHA-256 `E3FB9E5E4FBEED3C197F063E5B3487F62300162588D15079A22149980EB3DA9A`
+- 静默安装 ✅ → 冒烟 13/13 ✅

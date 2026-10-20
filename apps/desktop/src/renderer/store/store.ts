@@ -753,6 +753,8 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
           failureToast(r.failure);
           return;
         }
+        // R2 修复：竞态防护——loadThread 响应到达时，如果用户已切换到另一个会话，丢弃本响应
+        if (get().activeThreadId !== threadId) return;
         const isLive = get().liveThreadId === threadId;
         set((s) => ({
           conversation: isLive ? s.conversation : storedToConversation(r.value.messages),
@@ -888,14 +890,17 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
       async sendDraft() {
         const text = get().draft.trim();
         if (!text) return false;
+        // R2 修复：在飞守卫——IPC 往返期间禁止重复发送（双击/Enter+click 可发两次）
+        if (get().turnRunning) return false;
+        set({ draft: '' }); // R2 修复：同步清空草稿——await 后清空会丢弃用户在等待期间输入的内容
         const r = await bridge.engine.send(text);
         if (!r.ok) {
+          set({ draft: text }); // 失败时恢复草稿
           failureToast(r.failure);
           return false;
         }
         // 用户主动发送的回合不归属审阅（清除 startReview 的待归属标记）
         set((s) => ({
-          draft: '',
           turnRunning: true,
           stopPhase: 'idle',
           conversation: { ...s.conversation, reviewPending: false },
@@ -926,7 +931,9 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
           failureToast(r.failure);
           return;
         }
-        set({ steerNotice: null, draft: '', turnRunning: true, stopPhase: 'idle' });
+        // R2 修复：与 sendDraft 一致——用户主动发送不归属审阅
+        set((s) => ({ steerNotice: null, draft: '', turnRunning: true, stopPhase: 'idle',
+          conversation: { ...s.conversation, reviewPending: false } }));
       },
       dismissSteerNotice() {
         set({ steerNotice: null });

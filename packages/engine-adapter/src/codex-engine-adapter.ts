@@ -768,6 +768,10 @@ export class CodexEngineAdapter implements EngineAdapter {
     this.#discardUntilNewline = false;
     this.#stderrTail = '';
 
+    /* R2-BUG4 修复：stdio 流必须挂 error 监听器——引擎进程死亡时 EPIPE 无监听会崩溃宿主 */
+    proc.stdin?.on('error', () => { this.#connected = false; });
+    proc.stdout?.on('error', () => undefined);
+    proc.stderr?.on('error', () => undefined);
     proc.stdout?.on('data', (chunk: Buffer) => this.#onStdoutChunk(chunk));
     proc.stderr?.on('data', (chunk: Buffer) => this.#onStderrChunk(chunk));
     proc.on('exit', (code, signal) => this.#onExit(code, signal));
@@ -806,6 +810,19 @@ export class CodexEngineAdapter implements EngineAdapter {
 
   #onStdoutChunk(chunk: Buffer): void {
     this.#lineBuf += this.#decoder.write(chunk);
+    /* R2-BUG1 修复：在累积阶段即执行缓冲上限——无换行的超长行不再无限增长 */
+    if (!this.#discardUntilNewline && this.#lineBuf.indexOf('\n') < 0 && this.#lineBuf.length > MAX_LINE_CHARS) {
+      this.#discardUntilNewline = true;
+      this.#lineBuf = '';
+      this.#emitEvent({
+        type: 'error',
+        code: 'internal_error',
+        message: `单行 JSONL 超过缓冲上限 ${MAX_LINE_CHARS} 字符（累积阶段截断），已丢弃该行后续内容`,
+        recoverable: true,
+        threadId: this.#threadId ?? undefined,
+      });
+      return;
+    }
     if (this.#discardUntilNewline) {
       const nl = this.#lineBuf.indexOf('\n');
       if (nl < 0) {
@@ -924,10 +941,13 @@ export class CodexEngineAdapter implements EngineAdapter {
       try {
         if (process.platform === 'win32' && typeof proc.pid === 'number') {
             // Windows：taskkill /T 杀整棵进程树（引擎派生的工具子进程不残留），/F 强制
-            void spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], {
+            // R2-BUG3 修复：taskkill 失败时的 error 事件无监听会崩溃宿主——加 error 兜底 + 失败回退 proc.kill()
+            const tk = spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], {
               stdio: 'ignore',
               windowsHide: true,
             });
+            tk.on('error', () => { try { proc.kill('SIGKILL'); } catch { /* 已退出 */ } });
+            tk.on('exit', (code) => { if (code !== 0) { try { proc.kill('SIGKILL'); } catch { /* 已退出 */ } } });
           } else {
           proc.kill('SIGKILL');
         }
