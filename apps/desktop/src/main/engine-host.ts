@@ -83,6 +83,9 @@ export class EngineHost {
       this.#adapterProviderId = providerId;
     }
     const started = await this.#adapter.start(options);
+    /* BUG2 修复：adapter 复用路径也必须先退订旧的 SessionStore——否则每次 start()
+     * 叠加一个监听器（事件写 N 次 + seq 重复 → "历史不完整" 误报） */
+    this.#detachStore?.();
     // SessionStore 自动持久化（事件顺序即存储顺序）
     this.#detachStore = this.sessionStore.attach(this.#adapter, { projectRoot: options.projectRoot });
     return started;

@@ -77,6 +77,8 @@ export interface DeviceAdapter {
     serialPortsAvailable: boolean;
     serialPortCount: number;
   };
+  /** 当前独占持有的设备 bindingId（diagnostics 用；无则 null） */
+  readonly activeExclusive: string | undefined;
 }
 
 /** 串口传输抽象：真实 = serialport；fixture = 内存环回 */

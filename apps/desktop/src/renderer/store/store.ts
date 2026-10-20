@@ -1236,8 +1236,9 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
         });
       },
       async flashArtifact(taskId, artifactId, deviceBindingId) {
-        // 去重键由调用方业务键构成：重复点击返回原操作，不会重复烧录
-        const requestKey = `gui-${taskId}-${artifactId}-${deviceBindingId}`;
+        /* R2-BUG5 修复：加时间戳分量防止永久去重——同一产物+设备的重新烧录（如失败后重试
+         * 或外部擦板后重烧）不再被旧结果拦截。60s 窗口内仍去重（快速双击防抖） */
+        const requestKey = `gui-${taskId}-${artifactId}-${deviceBindingId}-${Math.floor(Date.now() / 60000)}`;
         await withBusy(`flash:${artifactId}`, async () => {
           const r = await bridge.runner.invoke('device.flash', {
             taskId,

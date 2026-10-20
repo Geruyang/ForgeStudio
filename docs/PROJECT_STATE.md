@@ -560,3 +560,27 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
 - FZ3B Zynq 实机 3/3 全绿
 - v1.3.0 SHA-256 `C99BCEA0F9A57C245401EB95F10C1C88EDCD88EC24DE2C9C658CFCAEC11B24E7`
 - 静默安装 ✅ → 冒烟 13/13 ✅
+
+## 回归第 1-2 轮修复 + v1.4.0（2026-10-20/21）
+
+### 第 1 轮回归（7 项修复）
+1. [P1] deviceFlash 进入 awaiting_authorization 时未写 deviceBindingId → GUI 首次授权必被拒
+2. [P1] EngineHost adapter 复用路径泄漏 SessionStore 订阅（事件写 N 次 + "历史不完整"误报）
+3. [P2] outputCache 无限增长 → 加 200 条上限淘汰
+4. [P2] 烧录授权忽略 acceptanceDigest（验收规则变化不须重授权）
+5. [P2] diagnostics.activeDeviceLock 永不填充 → DeviceAdapter.activeExclusive getter + 契约
+6. [P2] SSE 重连无 since 游标（>1000 事件后静默丢最新）→ lastEventSeq 跟踪 + ?since= 续传
+7. [P2] MCP tools/call race 定时器泄漏（阻止 stdio 退出）→ clearTimeout
+
+### 第 2 轮回归（6 项修复）
+1. [P1] 上轮 activeExclusive 修复破坏 DeviceAdapter 契约（typecheck 失败）→ 契约加 readonly 字段 + test stubs 适配
+2. [P1] device.verify nonce 匹配但 buildId 未回报被误判 failed → 'inconclusive'（serial.ts 语义）
+3. [P2] flash 确定性失败（DeviceOperationError.status='failed'）被归为 unknown → 按 status 分类
+4. [P2] serial 验证失败不记录证据 → （依赖 device: 前缀守卫前置，硬件不被无效输入触碰）
+5. [P2] flash requestKey 永久去重（同产物+设备无法重烧）→ 加 60s 窗口时间戳
+6. [P2] SSE replay LIMIT 1000 截断 → 提升至 5000
+
+### 验证（v1.4.0 关口）
+- typecheck 0 ✅ / contracts 34 / runner 157+5skip / mcp 36 / adapter 62 / desktop 98+6skip 全绿 ✅
+- SHA-256 `5533EB17C6F04AD4CF61C99A9DE90DE0CE60F8823CE03AF341C24107DFCB389B`
+- 静默安装 ✅ → 安装态冒烟 13/13 ✅

@@ -89,15 +89,19 @@ export function createMcpServer(opts: McpServerOptions): McpServer {
       );
     }
     // 桥接 runner：等待操作终态；失败 → isError:true + ToolFailure JSON（不崩进程）
+    /* BUG7 修复：超时定时器在正常完成后必须清除——否则每次调用泄漏一个 pending timer
+     * （闭包 + 事件循环引用），长时间会话累积并阻止 stdio 退出 */
+    let raceTimer: ReturnType<typeof setTimeout> | undefined;
     const bridged = await Promise.race([
       opts.bridge.callTool(toolName, args),
-      new Promise<ToolFailure>((resolve) =>
-        setTimeout(
+      new Promise<ToolFailure>((resolve) => {
+        raceTimer = setTimeout(
           () => resolve({ ok: false, kind: 'timeout', message: '工具调用超时（runner 未在预算内返回）' }),
           callTimeoutMs,
-        ),
-      ),
+        );
+      }),
     ]);
+    if (raceTimer !== undefined) clearTimeout(raceTimer);
     if (!bridged.ok) {
       // 连接层失败（未到达工具执行）
       return respond(id, {

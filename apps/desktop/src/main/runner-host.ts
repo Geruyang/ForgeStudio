@@ -110,13 +110,17 @@ export class RunnerHost {
     return (await res.json()) as T;
   }
 
-  /** 订阅 SSE 事件流：断线自动重连（窗口重载后重建视图，不重放副作用） */
+  /** 订阅 SSE 事件流：断线自动重连（带 since 游标防全量重放丢最新事件） */
+  #lastEventSeq = 0; // BUG6 修复：跟踪最新已收 seq，重连时从断点续传
   #connectEvents(): void {
     const d = this.#requireDiscovery();
     const run = async (): Promise<void> => {
       while (!this.#exited && !this.#sseAbort?.signal.aborted) {
         try {
-          const res = await fetch(`http://127.0.0.1:${d.port}/api/events`, {
+          const url = this.#lastEventSeq > 0
+            ? `http://127.0.0.1:${d.port}/api/events?since=${this.#lastEventSeq}`
+            : `http://127.0.0.1:${d.port}/api/events`;
+          const res = await fetch(url, {
             headers: { authorization: `Bearer ${d.token}`, accept: 'text/event-stream' },
             signal: this.#sseAbort?.signal,
           });
@@ -133,6 +137,11 @@ export class RunnerHost {
               const frame = buf.slice(0, idx);
               buf = buf.slice(idx + 2);
               for (const line of frame.split('\n')) {
+                if (line.startsWith('id:')) {
+                  /* BUG6 修复：跟踪 SSE 事件 id（=数据库 seq）用于断线重连的 since 游标 */
+                  const seq = Number(line.slice(3).trim());
+                  if (Number.isFinite(seq) && seq > this.#lastEventSeq) this.#lastEventSeq = seq;
+                }
                 if (line.startsWith('data:')) {
                   try {
                     this.opts.onEvent(JSON.parse(line.slice(5)) as RunnerEvent);

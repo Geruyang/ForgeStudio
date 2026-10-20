@@ -29,6 +29,7 @@ afterAll(async () => {
 
 /** 虚拟探针适配器（内存实现，标注模拟；接口形态与设备 Agent C 的真实实现对齐） */
 class StubProbeAdapter implements DeviceAdapter {
+  activeExclusive: string | undefined = undefined;
   flashCalls = 0;
   verifyCalls = 0;
   readonly devices: EnumeratedDevice[] = [

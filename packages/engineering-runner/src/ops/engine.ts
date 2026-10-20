@@ -175,6 +175,14 @@ export class OpsEngine {
   private readonly pendingAuths = new Map<string, PendingEntry>();
   private readonly runningOps = new Map<string, RunningEntry>();
   private readonly outputCache = new Map<string, ToolOutput | ToolFailure>();
+  /** BUG3 修复：outputCache 上限（防长会话内存无限增长；超出时淘汰最旧） */
+  #trimOutputCache(max = 200): void {
+    while (this.outputCache.size > max) {
+      const firstKey = this.outputCache.keys().next().value;
+      if (firstKey === undefined) break;
+      this.outputCache.delete(firstKey);
+    }
+  }
   private lastError?: string;
   private closed = false;
 
@@ -730,6 +738,7 @@ export class OpsEngine {
       probeRsAvailable: caps?.probeRsAvailable ?? false,
       probeRsPath: caps?.probeRsPath,
       serialPortsAvailable: caps?.serialPortsAvailable ?? false,
+      activeDeviceLock: this.deviceAdapter?.activeExclusive ?? undefined, // BUG5 修复：填充设备锁状态
       pendingAuthorizations: this.pendingAuths.size,
       lastError: this.lastError,
     };
@@ -848,10 +857,12 @@ export class OpsEngine {
     try {
       const result = await this.dispatch(type, op, args, ctx);
       this.outputCache.set(op.id, result);
+      this.#trimOutputCache();
       return result;
     } catch (error) {
       const failure = this.failureFrom(op, error);
       this.outputCache.set(op.id, failure);
+      this.#trimOutputCache();
       return failure;
     }
   }
@@ -1537,9 +1548,15 @@ export class OpsEngine {
       taskId: task.id,
       deviceBindingId: binding.id,
       artifactSha256: artifact.sha256,
+      acceptanceDigest, // BUG4 修复：验收规则变化须重新授权
       now: nowIso,
     });
     if (!existing) {
+      /* BUG1 修复：进入 awaiting_authorization 时就写入 deviceBindingId——
+       * GUI 的 confirmedScope 依赖操作记录上的此字段构建授权请求 */
+      this.setOperationStatus(op, 'awaiting_authorization', (o) => {
+        o.deviceBindingId = binding.id;
+      });
       const approved = await ctx.requestAuthorization({
         type: 'device_flash',
         title: `授权烧录：${binding.chipTarget}`,

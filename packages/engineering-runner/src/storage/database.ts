@@ -637,7 +637,7 @@ export class Storage {
     return Number(result.lastInsertRowid);
   }
 
-  listEvents(sinceSeq: number, limit = 1000): RunnerEvent[] {
+  listEvents(sinceSeq: number, limit = 5000): RunnerEvent[] { // R2-BUG6 修复：上限 1000→5000（长时间断线重连不丢失事件）
     const rows = this.db
       .prepare('SELECT * FROM events WHERE seq > ? ORDER BY seq LIMIT ?')
       .all(sinceSeq, limit) as Row[];
@@ -685,6 +685,8 @@ export class Storage {
     taskId: string;
     deviceBindingId?: string;
     artifactSha256?: string;
+    /** BUG4 修复：验收规则变化须重新授权——查询时同时匹配 acceptance_digest */
+    acceptanceDigest?: string;
     now: string;
   }): AuthorizationRecord | null {
     const rows = this.db
@@ -692,9 +694,14 @@ export class Storage {
         `SELECT * FROM authorizations
          WHERE decision = 'approved' AND task_id = ? AND device_binding_id IS ?
            AND artifact_sha256 IS ? AND valid_until > ?
+           ${scope.acceptanceDigest ? 'AND acceptance_digest = ?' : ''}
          ORDER BY id DESC LIMIT 1`,
       )
-      .all(scope.taskId, scope.deviceBindingId ?? null, scope.artifactSha256 ?? null, scope.now) as Row[];
+      .all(
+        ...(scope.acceptanceDigest
+          ? [scope.taskId, scope.deviceBindingId ?? null, scope.artifactSha256 ?? null, scope.now, scope.acceptanceDigest]
+          : [scope.taskId, scope.deviceBindingId ?? null, scope.artifactSha256 ?? null, scope.now]),
+      ) as Row[];
     if (rows.length === 0) return null;
     const r = rows[0];
     return {

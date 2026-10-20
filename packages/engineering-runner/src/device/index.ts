@@ -105,6 +105,9 @@ function normalizeIdentity(identity: DeviceBinding['identity']): DeviceBinding['
 export class ForgeDeviceAdapter implements DeviceAdapter {
   private readonly options: CreateDeviceAdapterOptions;
   private readonly lock: DeviceExclusiveFileLock;
+
+  /** 当前独占持有的设备 bindingId（diagnostics 用；无则 null） */
+  get activeExclusive(): string | undefined { return this.lock.activeKeys[0]; }
   /** bindingId → 持有（物理串口传输 + 端口名） */
   private readonly held = new Map<string, { transport?: SerialTransport; port?: string }>();
   private caps: Caps = { probeRsAvailable: false, serialPortsAvailable: false, serialPortCount: 0 };

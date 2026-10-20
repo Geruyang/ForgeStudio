@@ -50,6 +50,9 @@ export class DeviceExclusiveFileLock {
   /** 本进程内已持有的 key（同进程同 binding 二次获取直接失败） */
   private readonly held = new Map<string, LockFileContent>();
 
+  /** 当前本进程持有的锁（diagnostics 用） */
+  get activeKeys(): string[] { return Array.from(this.held.keys()); }
+
   constructor(private readonly lockDir: string) {}
 
   lockPath(key: string): string {

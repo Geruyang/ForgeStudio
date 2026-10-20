@@ -104,6 +104,7 @@ describe('should：长时间串口流与旧日志边界（模拟）', () => {
 // ---------------------------------------------------------------------------
 
 class HotplugStubAdapter implements DeviceAdapter {
+  activeExclusive: string | undefined = undefined;
   current: EnumeratedDevice;
   constructor(serial: string) {
     this.current = {
