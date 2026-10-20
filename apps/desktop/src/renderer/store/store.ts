@@ -339,6 +339,7 @@ const TURN_COMPLETION_LABELS_ZH: Record<'success' | 'failure' | 'interrupted', s
 
 export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = {}): StoreApi<AppStore> {
   let toastSeq = 0;
+  let refreshModelsToken = 0; // R3 修复：refreshModels 并发竞态防护——只有最新调用结果可写入
   // 预热并发守卫：bootstrap 与 refreshAuth 可能同 tick 触发，防止重复 start 引发引擎无谓重启
   let prewarmInFlight = false;
   // 预热一次性标记：成功后不再预热（引擎重启走「新会话」/selectModel 重建等显式路径）
@@ -655,12 +656,15 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
         return r.value;
       },
       async refreshModels() {
+        // R3 修复：并发调用竞态防护——只有最新调用的结果才允许写入 state
+        const callToken = ++refreshModelsToken;
+        const isStale = () => callToken !== refreshModelsToken;
         // 优先：活动引擎的 model/list（会话内真实可用模型）
         const r = await bridge.engine.models();
+        if (isStale()) return; // 已有更新的调用完成，丢弃本次结果
         if (r.ok) {
           set((s) => ({
             models: r.value,
-            // 残留的 defaultModel 可能不在当前提供方/引擎的列表里（如清除 provider 后）——重置为首项
             selectedModel:
               s.selectedModel && r.value.some((m) => m.id === s.selectedModel)
                 ? s.selectedModel
@@ -668,11 +672,11 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
           }));
           return;
         }
-        // 回退：已配置 key 的激活提供方直拉 GET {base}/models——
-        // 认证通过即可选择模型，不依赖选择项目目录或开启会话
+        // 回退：已配置 key 的激活提供方直拉 GET {base}/models
         const active = get().modelProviders.find((p) => p.active && p.keyConfigured);
         if (active) {
           const list = await bridge.app.listProviderModels(active.id);
+          if (isStale()) return;
           if (list.ok && list.value.length > 0) {
             const preferred = get().settings?.defaultModel ?? get().selectedModel;
             set({
@@ -910,15 +914,17 @@ export function createAppStore(bridge: ForgeDeskBridge, options: StoreOptions = 
       async steerDraft() {
         const text = get().draft.trim();
         if (!text) return false;
+        // R3 修复：同步清空草稿——await 后清空会丢弃用户在等待期间输入的新内容
+        set({ draft: '' });
         const r = await bridge.engine.steer(text);
         if (r.ok && r.value.delivered) {
           set((s) => ({
-            draft: '',
             conversation: appendSteerMessage(s.conversation, text, nowIso()),
           }));
           return true;
         }
-        // 未送达：输入保留、给出原因，绝不静默重发
+        // 未送达：恢复草稿、给出原因，绝不静默重发
+        set({ draft: text });
         if (!r.ok) failureToast(r.failure);
         set({ steerNotice: { reason: r.ok ? (r.value.reason ?? null) : null, text } });
         return false;

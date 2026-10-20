@@ -545,3 +545,18 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
 ### v1.2.0 验证关口
 - SHA-256 `E3FB9E5E4FBEED3C197F063E5B3487F62300162588D15079A22149980EB3DA9A`
 - 静默安装 ✅ → 冒烟 13/13 ✅
+
+## v1.3.0 三轮回归第三轮（2026-10-20）
+
+### 本轮修复 5 个中等优先级 bug（上轮 R2 发现但未修复项）
+1. [P1] steerDraft await 后清空草稿丢输入 → 同步清空 + 失败恢复
+2. [P1] adapter 旧进程事件串扰新连接（stdout/stdin/exit/error 加代次校验闭包）
+3. [P1] refreshModels 并发覆盖 → 递增 token 竞态防护
+4. [P1] recomputeTaskStatus stale 分支 running→verifying（任务不再永远"执行中"）
+5. [P1] approve() writeLine 失败时 pendingApprovals 不清除 → try/catch 清除 + 通知 UI
+
+### 验证
+- typecheck 0 / contracts 34 / runner 157+5skip / mcp 36 / adapter 62 / desktop 98+6skip
+- FZ3B Zynq 实机 3/3 全绿
+- v1.3.0 SHA-256 `C99BCEA0F9A57C245401EB95F10C1C88EDCD88EC24DE2C9C658CFCAEC11B24E7`
+- 静默安装 ✅ → 冒烟 13/13 ✅

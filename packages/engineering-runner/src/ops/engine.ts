@@ -1399,7 +1399,12 @@ export class OpsEngine {
     const current = this.storage.getTask(task.id) ?? task;
     let next: EngineeringTask['status'];
     if (judged.passed) next = 'passed';
-    else if (stale) next = current.status === 'passed' ? 'verifying' : current.status;
+    else if (stale) {
+      // R3 修复：stale 时 running → verifying（原逻辑保留 running 导致任务永远"执行中"）
+      // 且 required-failed 判定不应因 stale 而被跳过
+      if (acceptance.some((a) => a.required && a.status === 'failed')) next = 'failed';
+      else next = current.status === 'passed' ? 'verifying' : 'verifying';
+    }
     else if (acceptance.some((a) => a.required && a.status === 'failed')) next = 'failed';
     else next = 'verifying';
     if (next !== current.status) {

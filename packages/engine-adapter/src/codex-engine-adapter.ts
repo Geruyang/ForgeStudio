@@ -644,10 +644,25 @@ export class CodexEngineAdapter implements EngineAdapter {
       );
     }
     const response = this.#approvalResponseFor(entry.method, decision, entry.rawParams);
-    if (response.error) {
-      await this.#writeLine({ jsonrpc: JSONRPC_VERSION, id: entry.id, error: response.error });
-    } else {
-      await this.#writeLine({ jsonrpc: JSONRPC_VERSION, id: entry.id, result: response.result });
+    /* R3 修复：writeLine 失败（引擎死亡/EPIPE）时也必须清除条目并通知 UI——
+     * 否则审批卡永远 pending 且条目跨重启累积 */
+    try {
+      if (response.error) {
+        await this.#writeLine({ jsonrpc: JSONRPC_VERSION, id: entry.id, error: response.error });
+      } else {
+        await this.#writeLine({ jsonrpc: JSONRPC_VERSION, id: entry.id, result: response.result });
+      }
+    } catch (e) {
+      this.#pendingApprovals.delete(requestId);
+      this.#emitEvent({
+        type: 'error',
+        code: 'internal_error',
+        message: `审批应答发送失败（引擎可能已断开）：${errMsg(e)}`,
+        recoverable: true,
+        threadId: this.#threadId ?? undefined,
+      });
+      this.#emitEvent({ type: 'approval/resolved', requestId, decision, threadId: this.#threadId ?? undefined });
+      return;
     }
     this.#pendingApprovals.delete(requestId);
     this.#emitEvent({
@@ -769,13 +784,14 @@ export class CodexEngineAdapter implements EngineAdapter {
     this.#stderrTail = '';
 
     /* R2-BUG4 修复：stdio 流必须挂 error 监听器——引擎进程死亡时 EPIPE 无监听会崩溃宿主 */
-    proc.stdin?.on('error', () => { this.#connected = false; });
+    proc.stdin?.on('error', () => { if (this.#proc === proc) this.#connected = false; });
     proc.stdout?.on('error', () => undefined);
     proc.stderr?.on('error', () => undefined);
-    proc.stdout?.on('data', (chunk: Buffer) => this.#onStdoutChunk(chunk));
-    proc.stderr?.on('data', (chunk: Buffer) => this.#onStderrChunk(chunk));
-    proc.on('exit', (code, signal) => this.#onExit(code, signal));
-    proc.on('error', (err) => this.#onSpawnError(err));
+    /* R3 修复：旧进程事件不得影响新代次——闭包捕获 proc 引用做代次校验 */
+    proc.stdout?.on('data', (chunk: Buffer) => { if (this.#proc === proc) this.#onStdoutChunk(chunk); });
+    proc.stderr?.on('data', (chunk: Buffer) => { if (this.#proc === proc) this.#onStderrChunk(chunk); });
+    proc.on('exit', (code, signal) => { if (this.#proc === proc) this.#onExit(code, signal); });
+    proc.on('error', (err) => { if (this.#proc === proc) this.#onSpawnError(err); });
   }
 
   #onStderrChunk(chunk: Buffer): void {
@@ -890,6 +906,7 @@ export class CodexEngineAdapter implements EngineAdapter {
   }
 
   #onExit(code: number | null, signal: NodeJS.Signals | null): void {
+    /* 代次校验已在 #spawnProcess 的闭包中完成（this.#proc === proc 才调此方法） */
     this.#connected = false;
     this.#activeTurnId = null;
     for (const pending of this.#pending.values()) {
