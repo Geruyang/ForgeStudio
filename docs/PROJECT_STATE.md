@@ -584,3 +584,11 @@ loadPatch patchRef 正则防穿越；SSH host 无 renderer 注入面（profile �
 - typecheck 0 ✅ / contracts 34 / runner 157+5skip / mcp 36 / adapter 62 / desktop 98+6skip 全绿 ✅
 - SHA-256 `5533EB17C6F04AD4CF61C99A9DE90DE0CE60F8823CE03AF341C24107DFCB389B`
 - 静默安装 ✅ → 安装态冒烟 13/13 ✅
+
+## v1.4.0 FZ3B 实机验证状态（2026-10-21）
+
+- **板卡离线**：PC 以太网适配器 Disconnected（0 bps）——网线物理断开或板卡断电，非软件问题
+- 三个 SSH live 测试因 EHOSTUNREACH 无法执行（等待用户重新连接板卡）
+- v1.4.0 的 FZ3B 相关改动（SSH 会话泄漏修复、deviceBindingId 授权修复）均不改变板上行为，
+  上一次实机验证（v1.2.0/v1.3.0 时代 3/3 全绿）的板上构建/验收逻辑未被触碰
+- 板卡重连后重跑三个 live 测试即可完成实机验证（无需重新打包）
